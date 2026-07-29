@@ -1,4 +1,4 @@
-// bot.js - সম্পূর্ণ টেলিগ্রাম বট (প্রিমিয়াম ছাড়া)
+// bot.js - সম্পূর্ণ টেলিগ্রাম বট (photoFileId সাপোর্ট সহ)
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const fs = require('fs');
@@ -11,6 +11,7 @@ const TELEGRAM_TOKEN = '8801488172:AAHRtyt0PCcCijxGE7lu6Y_tzJt0kQflIhg';  // Bot
 
 const LOGIN_URL = 'https://dhakapolytechnic.com/api/auth/sign-in/email';
 const SEARCH_URL = 'https://dhakapolytechnic.com/api/students';
+const FILE_API_URL = 'https://dhakapolytechnic.com/api/files';  // ফাইল এপিআই
 const EMAIL = 'otsshamol@gmail.com';
 const PASSWORD = 'oT$@2007';
 
@@ -134,6 +135,55 @@ class SessionManager {
             return null;
         }
     }
+
+    // ফাইল ডাউনলোডের জন্য নতুন মেথড
+    async getFile(photoFileId) {
+        if (!this.cookies || (new Date() - this.lastLogin) > 3600000) {
+            console.log('🔄 ফাইলের জন্য রি-লগইন হচ্ছে...');
+            if (!await this.login()) {
+                return null;
+            }
+        }
+
+        try {
+            const response = await this.axiosInstance.get(
+                `${FILE_API_URL}/${photoFileId}`,
+                {
+                    headers: {
+                        'Cookie': this.cookies
+                    },
+                    responseType: 'stream'  // ফাইল স্ট্রিম হিসেবে
+                }
+            );
+
+            if (response.status === 401) {
+                console.log('🔄 ফাইলের জন্য কুকি এক্সপায়ার! রি-লগইন...');
+                if (await this.login()) {
+                    const retryResponse = await this.axiosInstance.get(
+                        `${FILE_API_URL}/${photoFileId}`,
+                        {
+                            headers: {
+                                'Cookie': this.cookies
+                            },
+                            responseType: 'stream'
+                        }
+                    );
+                    if (retryResponse.status === 200) {
+                        return retryResponse;
+                    }
+                }
+                return null;
+            }
+
+            if (response.status === 200) {
+                return response;
+            }
+            return null;
+        } catch (error) {
+            console.error('❌ ফাইল ডাউনলোড এরর:', error.message);
+            return null;
+        }
+    }
 }
 
 const session = new SessionManager();
@@ -224,11 +274,11 @@ bot.command('about', async (ctx) => {
         `শিক্ষার্থীদের তথ্য অনুসন্ধান বট।\n\n` +
         `⚡ **বৈশিষ্ট্য:**\n` +
         `• রোল দিয়ে দ্রুত খোঁজ\n` +
-        `• ফটো সহ তথ্য\n` +
+        `• ফটো সহ তথ্য (photoUrl/photoFileId)\n` +
         `• সম্পূর্ণ ফ্রি\n` +
         `• ২৪/৭ সক্রিয়\n\n` +
         `📌 **ডেভেলপার:** Oahid Towsif Shamol\n` +
-        `📅 **সংস্করণ:** 3.0 (ফ্রি)`
+        `📅 **সংস্করণ:** 3.1 (photoFileId সাপোর্ট)`
     );
 });
 
@@ -250,6 +300,76 @@ bot.command('stats', async (ctx) => {
         `🎯 রোল নম্বর পাঠান নতুন সার্চ করতে।`
     );
 });
+
+// ========== ফটো পাঠানোর ফাংশন ==========
+async function sendStudentPhoto(ctx, photoUrl, photoFileId, reply, roll, userId) {
+    // ১. photoUrl থাকলে সরাসরি পাঠান
+    if (photoUrl) {
+        try {
+            await ctx.replyWithPhoto(photoUrl, {
+                caption: reply,
+                parse_mode: 'Markdown'
+            });
+            console.log(`✅ ${roll} - photoUrl থেকে ফটো পাঠানো হয়েছে (ইউজার: ${userId})`);
+            return true;
+        } catch (error) {
+            console.log(`⚠️ photoUrl থেকে ফটো পাঠাতে সমস্যা:`, error.message);
+            // photoUrl কাজ না করলে photoFileId试试
+            if (photoFileId) {
+                console.log(`🔄 photoFileId দিয়ে চেষ্টা করা হচ্ছে...`);
+                return await sendStudentPhotoFromFileId(ctx, photoFileId, reply, roll, userId);
+            }
+            return false;
+        }
+    }
+    
+    // ২. photoUrl না থাকলে photoFileId দিয়ে চেষ্টা
+    if (photoFileId) {
+        return await sendStudentPhotoFromFileId(ctx, photoFileId, reply, roll, userId);
+    }
+    
+    return false;
+}
+
+// ========== photoFileId থেকে ফটো পাঠানো ==========
+async function sendStudentPhotoFromFileId(ctx, photoFileId, reply, roll, userId) {
+    try {
+        // ফাইল ডাউনলোড
+        const fileResponse = await session.getFile(photoFileId);
+        
+        if (!fileResponse) {
+            console.log(`❌ photoFileId ডাউনলোড ব্যর্থ: ${photoFileId}`);
+            return false;
+        }
+
+        // ফাইল স্ট্রিম থেকে buffer তৈরি
+        const chunks = [];
+        fileResponse.data.on('data', (chunk) => chunks.push(chunk));
+        
+        await new Promise((resolve, reject) => {
+            fileResponse.data.on('end', resolve);
+            fileResponse.data.on('error', reject);
+        });
+
+        const buffer = Buffer.concat(chunks);
+        
+        // ফটো পাঠান
+        await ctx.replyWithPhoto(
+            { source: buffer },
+            {
+                caption: reply,
+                parse_mode: 'Markdown'
+            }
+        );
+        
+        console.log(`✅ ${roll} - photoFileId থেকে ফটো পাঠানো হয়েছে (ইউজার: ${userId})`);
+        return true;
+        
+    } catch (error) {
+        console.log(`❌ photoFileId থেকে ফটো পাঠাতে সমস্যা:`, error.message);
+        return false;
+    }
+}
 
 // ========== সার্চ হ্যান্ডলার ==========
 bot.on('text', async (ctx) => {
@@ -303,36 +423,29 @@ bot.on('text', async (ctx) => {
     // ডেটা প্রস্তুত
     const student = result.rows[0];
     const reply = formatStudentData(student);
-    const photoUrl = student.photoUrl;
+    
+    // ওয়েটিং মেসেজ ডিলিট
+    await ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id);
 
-    // ফটো সহ পাঠান
-    if (photoUrl) {
-        try {
-            await ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id);
-            await ctx.replyWithPhoto(photoUrl, {
-                caption: reply,
-                parse_mode: 'Markdown'
-            });
-            console.log(`✅ ${roll} - ফটো সহ পাঠানো হয়েছে (ইউজার: ${userId})`);
-        } catch (error) {
-            console.log(`⚠️ ফটো এরর:`, error.message);
-            await ctx.telegram.editMessageText(
-                ctx.chat.id,
-                waitingMsg.message_id,
-                null,
-                `⚠️ ফটো লোড করতে সমস্যা!\n\n${reply}`,
-                { parse_mode: 'Markdown' }
-            );
-        }
-    } else {
-        await ctx.telegram.editMessageText(
-            ctx.chat.id,
-            waitingMsg.message_id,
-            null,
-            reply,
-            { parse_mode: 'Markdown' }
+    // ========== ফটো পাঠানোর চেষ্টা ==========
+    const photoUrl = student.photoUrl;
+    const photoFileId = student.photoFileId;
+    
+    const photoSent = await sendStudentPhoto(
+        ctx, 
+        photoUrl, 
+        photoFileId, 
+        reply, 
+        roll, 
+        userId
+    );
+
+    // ফটো না পাঠালে শুধু টেক্সট
+    if (!photoSent) {
+        await ctx.replyWithMarkdown(
+            `📝 **তথ্য পাওয়া গেছে (ফটো ছাড়া)**\n\n${reply}`
         );
-        console.log(`✅ ${roll} - টেক্সট পাঠানো হয়েছে (ইউজার: ${userId})`);
+        console.log(`✅ ${roll} - শুধু টেক্সট পাঠানো হয়েছে (ইউজার: ${userId})`);
     }
 });
 
@@ -347,6 +460,8 @@ bot.catch((err, ctx) => {
 // ========================================
 
 console.log('🤖 বট চালু হচ্ছে...');
+console.log('📸 photoUrl এবং photoFileId উভয় সাপোর্ট করা হবে।');
+
 bot.launch()
     .then(() => {
         console.log('✅ বট রেডি! টেলিগ্রামে /start দিন');
