@@ -7,7 +7,7 @@ const fs = require('fs');
 // ১. কনফিগারেশন
 // ========================================
 
-const TELEGRAM_TOKEN = 'YOUR_BOT_TOKEN_HERE';  // BotFather থেকে নিন
+const TELEGRAM_TOKEN = '8801488172:AAHRtyt0PCcCijxGE7lu6Y_tzJt0kQflIhg';  // BotFather থেকে নিন
 
 const LOGIN_URL = 'https://dhakapolytechnic.com/api/auth/sign-in/email';
 const SEARCH_URL = 'https://dhakapolytechnic.com/api/students';
