@@ -1,4 +1,4 @@
-// bot.js - সম্পূর্ণ টেলিগ্রাম বট (Node.js)
+// bot.js - সম্পূর্ণ টেলিগ্রাম বট (প্রিমিয়াম ছাড়া)
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const fs = require('fs');
@@ -14,7 +14,6 @@ const SEARCH_URL = 'https://dhakapolytechnic.com/api/students';
 const EMAIL = 'otsshamol@gmail.com';
 const PASSWORD = 'oT$@2007';
 
-const DAILY_FREE_SEARCH = 5;
 const USERS_FILE = 'users.json';
 
 // ========================================
@@ -74,7 +73,6 @@ class SessionManager {
             });
 
             if (response.status === 200) {
-                // কুকি সংগ্রহ
                 const cookies = response.headers['set-cookie'];
                 if (cookies) {
                     this.cookies = cookies.join('; ');
@@ -92,7 +90,6 @@ class SessionManager {
     }
 
     async searchStudent(roll) {
-        // কুকি নেই বা ১ ঘণ্টা পার হলে রি-লগইন
         if (!this.cookies || (new Date() - this.lastLogin) > 3600000) {
             console.log('🔄 রি-লগইন হচ্ছে...');
             if (!await this.login()) {
@@ -110,7 +107,6 @@ class SessionManager {
                 }
             );
 
-            // কুকি এক্সপায়ার হলে রি-লগইন
             if (response.status === 401) {
                 console.log('🔄 কুকি এক্সপায়ার! রি-লগইন...');
                 if (await this.login()) {
@@ -140,66 +136,10 @@ class SessionManager {
     }
 }
 
-// গ্লোবাল সেশন
 const session = new SessionManager();
 
 // ========================================
-// ৪. প্রিমিয়াম চেকার
-// ========================================
-
-function isPremium(userId) {
-    const user = getUser(userId);
-    if (!user || !user.premium) return false;
-
-    // এক্সপায়ারি চেক
-    if (user.expiry) {
-        const expiryDate = new Date(user.expiry);
-        if (expiryDate < new Date()) {
-            user.premium = false;
-            updateUser(userId, user);
-            return false;
-        }
-    }
-    return true;
-}
-
-function canSearch(userId) {
-    if (isPremium(userId)) return true;
-
-    const user = getUser(userId);
-    const today = new Date().toISOString().split('T')[0];
-
-    // আজকের ডেটা রিসেট
-    if (!user || user.date !== today) {
-        updateUser(userId, {
-            ...user,
-            date: today,
-            daily_count: 0
-        });
-        return true;
-    }
-
-    return (user.daily_count || 0) < DAILY_FREE_SEARCH;
-}
-
-function incrementSearch(userId) {
-    const user = getUser(userId) || { total_searches: 0 };
-    const today = new Date().toISOString().split('T')[0];
-
-    if (user.date !== today) {
-        user.date = today;
-        user.daily_count = 0;
-    }
-
-    user.daily_count = (user.daily_count || 0) + 1;
-    user.total_searches = (user.total_searches || 0) + 1;
-    user.joined = user.joined || new Date().toISOString();
-
-    updateUser(userId, user);
-}
-
-// ========================================
-// ৫. ডেটা ফরম্যাটার
+// ৪. ডেটা ফরম্যাটার
 // ========================================
 
 function formatStudentData(student) {
@@ -233,7 +173,7 @@ function formatStudentData(student) {
 }
 
 // ========================================
-// ৬. টেলিগ্রাম বট
+// ৫. টেলিগ্রাম বট
 // ========================================
 
 const bot = new Telegraf(TELEGRAM_TOKEN);
@@ -245,16 +185,11 @@ bot.start(async (ctx) => {
 
     if (!user) {
         user = {
-            premium: false,
-            daily_count: 0,
             total_searches: 0,
             joined: new Date().toISOString()
         };
         updateUser(userId, user);
     }
-
-    const premiumStatus = isPremium(userId) ? '✅ হ্যাঁ' : '❌ না';
-    const dailyCount = user.daily_count || 0;
 
     await ctx.replyWithMarkdown(
         `🎓 **শিক্ষার্থী তথ্য অনুসন্ধান বট**\n` +
@@ -262,10 +197,8 @@ bot.start(async (ctx) => {
         `🔍 আপনার রোল নম্বর পাঠান।\n` +
         `যেমন: \`240363\`\n\n` +
         `📊 **আপনার স্ট্যাটাস:**\n` +
-        `• প্রিমিয়াম: ${premiumStatus}\n` +
-        `• আজকের সার্চ: ${dailyCount}/${DAILY_FREE_SEARCH}\n` +
         `• মোট সার্চ: ${user.total_searches || 0}\n\n` +
-        `💰 প্রিমিয়াম নিতে /premium দিন।`
+        `📸 ফটো সহ সম্পূর্ণ তথ্য পাবেন!`
     );
 });
 
@@ -277,9 +210,8 @@ bot.help(async (ctx) => {
         `2️⃣ আপনার রোল নম্বর পাঠান (যেমন: \`240363\`)\n` +
         `3️⃣ বট তথ্য খুঁজে দেবে\n\n` +
         `⚡ **অন্যান্য কমান্ড:**\n` +
-        `• /premium - প্রিমিয়াম তথ্য\n` +
-        `• /profile - আপনার প্রোফাইল\n` +
-        `• /about - বট সম্পর্কে\n\n` +
+        `• /about - বট সম্পর্কে\n` +
+        `• /stats - আপনার পরিসংখ্যান\n\n` +
         `📸 ফটো সহ তথ্য পাবেন!`
     );
 });
@@ -293,42 +225,15 @@ bot.command('about', async (ctx) => {
         `⚡ **বৈশিষ্ট্য:**\n` +
         `• রোল দিয়ে দ্রুত খোঁজ\n` +
         `• ফটো সহ তথ্য\n` +
-        `• দৈনিক ৫টি ফ্রি সার্চ\n` +
-        `• প্রিমিয়াম: আনলিমিটেড\n\n` +
+        `• সম্পূর্ণ ফ্রি\n` +
+        `• ২৪/৭ সক্রিয়\n\n` +
         `📌 **ডেভেলপার:** Oahid Towsif Shamol\n` +
-        `📅 **সংস্করণ:** 2.0`
+        `📅 **সংস্করণ:** 3.0 (ফ্রি)`
     );
 });
 
-// ========== প্রিমিয়াম কমান্ড ==========
-bot.command('premium', async (ctx) => {
-    const userId = ctx.from.id;
-
-    if (isPremium(userId)) {
-        const user = getUser(userId);
-        await ctx.replyWithMarkdown(
-            `✅ **আপনি প্রিমিয়াম ইউজার!**\n\n` +
-            `📅 মেয়াদ: ${user.expiry || 'N/A'}\n` +
-            `🔓 সব ফিচার আনলিমিটেড\n\n` +
-            `আপনার রোল নম্বর পাঠান।`
-        );
-    } else {
-        await ctx.replyWithMarkdown(
-            `💎 **প্রিমিয়াম সাবস্ক্রিপশন**\n\n` +
-            `✨ **প্রিমিয়াম ফিচারসমূহ:**\n` +
-            `• ♾️ আনলিমিটেড সার্চ\n` +
-            `• 📊 এক্সেল রিপোর্ট\n` +
-            `• 📋 বাল্ক সার্চ\n` +
-            `• 🚀 দ্রুততম স্পিড\n\n` +
-            `💰 **মূল্য:** $10/মাস\n\n` +
-            `📲 পেমেন্ট করতে: \`payment@example.com\`\n` +
-            `এ ইমেইলে যোগাযোগ করুন।`
-        );
-    }
-});
-
-// ========== প্রোফাইল কমান্ড ==========
-bot.command('profile', async (ctx) => {
+// ========== স্ট্যাটস কমান্ড ==========
+bot.command('stats', async (ctx) => {
     const userId = ctx.from.id;
     const user = getUser(userId);
 
@@ -337,18 +242,12 @@ bot.command('profile', async (ctx) => {
         return;
     }
 
-    const status = isPremium(userId) ? '✅ প্রিমিয়াম' : '❌ ফ্রি';
-    const expiry = user.expiry || 'N/A';
-
     await ctx.replyWithMarkdown(
-        `👤 **আপনার প্রোফাইল**\n` +
+        `📊 **আপনার পরিসংখ্যান**\n` +
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `📊 **স্ট্যাটাস:** ${status}\n` +
         `📅 **জয়েন:** ${(user.joined || 'N/A').slice(0, 10)}\n` +
-        `🔢 **মোট সার্চ:** ${user.total_searches || 0}\n` +
-        `📆 **আজকের সার্চ:** ${user.daily_count || 0}/${DAILY_FREE_SEARCH}\n` +
-        `⏳ **মেয়াদ:** ${expiry}\n\n` +
-        `💳 প্রিমিয়াম নিতে /premium দিন।`
+        `🔢 **মোট সার্চ:** ${user.total_searches || 0}\n\n` +
+        `🎯 রোল নম্বর পাঠান নতুন সার্চ করতে।`
     );
 });
 
@@ -357,7 +256,7 @@ bot.on('text', async (ctx) => {
     const userId = ctx.from.id;
     const roll = ctx.message.text.trim();
 
-    // কমান্ড চেক (পুনরায়)
+    // কমান্ড চেক
     if (roll.startsWith('/')) return;
 
     // ভ্যালিডেশন
@@ -367,18 +266,6 @@ bot.on('text', async (ctx) => {
             `রোল নম্বর ৬ ডিজিটের হয়।\n` +
             `যেমন: \`240363\`\n\n` +
             `আবার চেষ্টা করুন।`
-        );
-        return;
-    }
-
-    // ফ্রি সার্চ লিমিট চেক
-    if (!canSearch(userId)) {
-        const user = getUser(userId);
-        await ctx.replyWithMarkdown(
-            `⚠️ **দৈনিক সার্চ লিমিট শেষ!**\n\n` +
-            `আজ আপনি ${user.daily_count}/${DAILY_FREE_SEARCH}টি সার্চ করেছেন।\n\n` +
-            `💎 **প্রিমিয়াম নিলে আনলিমিটেড সার্চ পাবেন!**\n` +
-            `/premium দিন বিস্তারিত জানতে।`
         );
         return;
     }
@@ -408,7 +295,10 @@ bot.on('text', async (ctx) => {
     }
 
     // সার্চ কাউন্ট বাড়ান
-    incrementSearch(userId);
+    const user = getUser(userId) || { total_searches: 0 };
+    user.total_searches = (user.total_searches || 0) + 1;
+    user.joined = user.joined || new Date().toISOString();
+    updateUser(userId, user);
 
     // ডেটা প্রস্তুত
     const student = result.rows[0];
@@ -453,7 +343,7 @@ bot.catch((err, ctx) => {
 });
 
 // ========================================
-// ৭. বট স্টার্ট
+// ৬. বট স্টার্ট
 // ========================================
 
 console.log('🤖 বট চালু হচ্ছে...');
@@ -465,6 +355,5 @@ bot.launch()
         console.error('❌ বট লঞ্চ করতে সমস্যা:', error);
     });
 
-// গ্রেসফুল শাটডাউন
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
