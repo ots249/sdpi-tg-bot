@@ -248,7 +248,6 @@ function formatResultData(resultData, roll) {
         reply += '📈 **সর্বশেষ ফলাফল:**\n';
         reply += '━━━━━━━━━━━━━━━━━━━━\n';
         
-        // সেমিস্টার অনুযায়ী সাজানো
         const sortedResults = [...studentData.latestResults].sort((a, b) => a.semester - b.semester);
         
         for (const result of sortedResults) {
@@ -286,7 +285,6 @@ function formatResultData(resultData, roll) {
         reply += `• পাস করা: ${passedSemesters}\n`;
         reply += `• ফেল করা: ${totalSemesters - passedSemesters}\n`;
         
-        // সিজিপিএ ক্যালকুলেশন
         let totalGpa = 0;
         let gpaCount = 0;
         if (studentData.latestResults) {
