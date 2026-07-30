@@ -8,7 +8,7 @@ const fs = require('fs');
 // ========================================
 
 const TELEGRAM_TOKEN = '8801488172:AAFPwi17tgFalw0u56Jf5O24YEVH3KBdKsc';
-const ADMIN_IDS = ['8279612640']; // আপনার টেলিগ্রাম আইডি দিন
+const ADMIN_IDS = ['8279612640'];
 
 const LOGIN_URL = 'https://dhakapolytechnic.com/api/auth/sign-in/email';
 const SEARCH_URL = 'https://dhakapolytechnic.com/api/students';
@@ -63,7 +63,6 @@ function addHistory(userId, roll, result) {
         timestamp: new Date().toISOString(),
         result: result ? 'found' : 'not_found'
     });
-    // সর্বশেষ ১০০টি রাখি
     if (history[userId].length > 100) {
         history[userId] = history[userId].slice(-100);
     }
@@ -267,11 +266,16 @@ const bot = new Telegraf(TELEGRAM_TOKEN);
 
 // ========== অ্যাডমিন মিডলওয়্যার ==========
 async function adminOnly(ctx, next) {
-    if (!isAdmin(ctx.from.id)) {
-        await ctx.reply('⛔ এই কমান্ড শুধু অ্যাডমিনদের জন্য।');
-        return;
+    try {
+        if (!isAdmin(ctx.from.id)) {
+            await ctx.reply('⛔ এই কমান্ড শুধু অ্যাডমিনদের জন্য।');
+            return;
+        }
+        await next();
+    } catch (error) {
+        console.error('Admin middleware error:', error);
+        await ctx.reply('⚠️ অ্যাডমিন চেক করতে সমস্যা হয়েছে।');
     }
-    await next();
 }
 
 // ========================================
@@ -293,7 +297,7 @@ bot.start(async (ctx) => {
         `🎓 **শিক্ষার্থী তথ্য অনুসন্ধান বট**\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
         `🔍 আপনার রোল নম্বর পাঠান।\n` +
-        `যেমন: \`240363\`\n\n` +
+        `যেমন: \`240363\` অথবা \`2403631\`\n\n` +
         `📊 **আপনার স্ট্যাটাস:**\n` +
         `• মোট সার্চ: ${user.total_searches || 0}\n` +
         `${isAdminUser ? '• 👑 অ্যাডমিন' : ''}\n\n` +
@@ -360,30 +364,35 @@ bot.command('stats', async (ctx) => {
 
 // অ্যাডমিন প্যানেল
 bot.command('admin', adminOnly, async (ctx) => {
-    const users = getUsers();
-    const history = getHistory();
-    const totalUsers = Object.keys(users).length;
-    let totalSearches = 0;
-    Object.values(users).forEach(u => {
-        totalSearches += (u.total_searches || 0);
-    });
+    try {
+        const users = getUsers();
+        const history = getHistory();
+        const totalUsers = Object.keys(users).length;
+        let totalSearches = 0;
+        Object.values(users).forEach(u => {
+            totalSearches += (u.total_searches || 0);
+        });
 
-    await ctx.replyWithMarkdown(
-        `👑 **অ্যাডমিন প্যানেল**\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `📊 **পরিসংখ্যান:**\n` +
-        `• মোট ইউজার: ${totalUsers}\n` +
-        `• মোট সার্চ: ${totalSearches}\n` +
-        `• অ্যাক্টিভ ইউজার: ${Object.keys(history).length}\n\n` +
-        `⚡ **কমান্ড:**\n` +
-        `• /broadcast - ব্রডকাস্ট মেসেজ\n` +
-        `• /users - ইউজার লিস্ট\n` +
-        `• /stats_all - সব পরিসংখ্যান\n` +
-        `• /history [userId] - ইউজার হিস্ট্রি\n` +
-        `• /clear_history [userId] - হিস্ট্রি ক্লিয়ার\n` +
-        `• /delete_user [userId] - ইউজার ডিলিট\n\n` +
-        `💡 ব্যবহার: /history 123456789`
-    );
+        await ctx.replyWithMarkdown(
+            `👑 **অ্যাডমিন প্যানেল**\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `📊 **পরিসংখ্যান:**\n` +
+            `• মোট ইউজার: ${totalUsers}\n` +
+            `• মোট সার্চ: ${totalSearches}\n` +
+            `• অ্যাক্টিভ ইউজার: ${Object.keys(history).length}\n\n` +
+            `⚡ **কমান্ড:**\n` +
+            `• /broadcast - ব্রডকাস্ট মেসেজ\n` +
+            `• /users - ইউজার লিস্ট\n` +
+            `• /stats_all - সব পরিসংখ্যান\n` +
+            `• /history [userId] - ইউজার হিস্ট্রি\n` +
+            `• /clear_history [userId] - হিস্ট্রি ক্লিয়ার\n` +
+            `• /delete_user [userId] - ইউজার ডিলিট\n\n` +
+            `💡 ব্যবহার: /history 123456789`
+        );
+    } catch (error) {
+        console.error('Admin panel error:', error);
+        await ctx.reply('⚠️ অ্যাডমিন প্যানেল লোড করতে সমস্যা হয়েছে।');
+    }
 });
 
 // ব্রডকাস্ট
@@ -409,7 +418,6 @@ bot.command('broadcast', adminOnly, async (ctx) => {
         } catch (error) {
             failed++;
         }
-        // রেট লিমিট এড়াতে স্লিপ
         await new Promise(resolve => setTimeout(resolve, 50));
     }
 
@@ -435,7 +443,7 @@ bot.command('users', adminOnly, async (ctx) => {
     }
 
     let reply = `👥 **ইউজার লিস্ট**\n━━━━━━━━━━━━━━━━━━━━\n\n`;
-    const recentUsers = userIds.slice(-20); // সর্বশেষ ২০ জন
+    const recentUsers = userIds.slice(-20);
     
     for (const id of recentUsers) {
         const user = users[id];
@@ -463,7 +471,6 @@ bot.command('stats_all', adminOnly, async (ctx) => {
         totalSearches += (u.total_searches || 0);
     });
 
-    // গত ৭ দিনে সক্রিয় ইউজার
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     for (const [userId, histories] of Object.entries(history)) {
@@ -513,7 +520,7 @@ bot.command('history', adminOnly, async (ctx) => {
     }
     reply += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-    const recent = userHistory.slice(-10).reverse(); // সর্বশেষ ১০টি
+    const recent = userHistory.slice(-10).reverse();
     for (const entry of recent) {
         reply += `🎯 রোল: ${entry.roll}\n`;
         reply += `📅 ${new Date(entry.timestamp).toLocaleString()}\n`;
@@ -581,11 +588,12 @@ bot.on('text', async (ctx) => {
 
     if (roll.startsWith('/')) return;
 
-    if (!/^\d{6}$/.test(roll)) {
+    // রোল ভ্যালিডেশন - ৬ বা ৭ ডিজিট
+    if (!/^\d{6,7}$/.test(roll)) {
         await ctx.replyWithMarkdown(
             `❌ **ভুল রোল নম্বর!**\n\n` +
-            `রোল নম্বর ৬ ডিজিটের হয়।\n` +
-            `যেমন: \`240363\``
+            `রোল নম্বর ৬ বা ৭ ডিজিটের হয়।\n` +
+            `যেমন: \`240363\` অথবা \`2403631\``
         );
         return;
     }
@@ -608,7 +616,6 @@ bot.on('text', async (ctx) => {
         return;
     }
 
-    // ইউজার আপডেট
     const user = getUser(userId) || { total_searches: 0 };
     user.total_searches = (user.total_searches || 0) + 1;
     user.joined = user.joined || new Date().toISOString();
@@ -658,26 +665,49 @@ app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
 
-// পোর্ট লিসেন শুরু করুন (Render-এর জন্য)
+// পোর্ট লিসেন শুরু করুন
 const server = app.listen(port, () => {
     console.log(`✅ ওয়েব সার্ভার চলছে পোর্ট ${port} এ`);
 });
 
 // বট লঞ্চ করুন
-bot.launch()
-    .then(() => {
-        console.log('✅ বট রেডি! টেলিগ্রামে /start দিন');
-        console.log('📋 অ্যাডমিন প্যানেল: /admin');
-    })
-    .catch((error) => {
-        console.error('❌ বট লঞ্চ করতে সমস্যা:', error);
-    });
-
-process.once('SIGINT', () => {
-    bot.stop('SIGINT');
-    server.close();
+bot.launch({
+    dropPendingUpdates: true
+})
+.then(() => {
+    console.log('✅ বট রেডি! টেলিগ্রামে /start দিন');
+    console.log('📋 অ্যাডমিন প্যানেল: /admin');
+    console.log(`👑 অ্যাডমিন ইউজার: ${ADMIN_IDS.join(', ')}`);
+})
+.catch((error) => {
+    console.error('❌ বট লঞ্চ করতে সমস্যা:', error);
+    process.exit(1);
 });
+
+// গ্রেসফুল শাটডাউন
+process.once('SIGINT', () => {
+    console.log('🛑 SIGINT পেয়েছি, বন্ধ করা হচ্ছে...');
+    bot.stop('SIGINT');
+    server.close(() => {
+        console.log('✅ সার্ভার বন্ধ হয়েছে');
+        process.exit(0);
+    });
+});
+
 process.once('SIGTERM', () => {
+    console.log('🛑 SIGTERM পেয়েছি, বন্ধ করা হচ্ছে...');
     bot.stop('SIGTERM');
-    server.close();
+    server.close(() => {
+        console.log('✅ সার্ভার বন্ধ হয়েছে');
+        process.exit(0);
+    });
+});
+
+// আনকট এক্সেপশন হ্যান্ডলার
+process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
