@@ -7,7 +7,7 @@ const fs = require('fs');
 // ১. কনফিগারেশন
 // ========================================
 
-const TELEGRAM_TOKEN = '8801488172:AAHRtyt0PCcCijxGE7lu6Y_tzJt0kQflIhg';
+const TELEGRAM_TOKEN = '8801488172:AAFPwi17tgFalw0u56Jf5O24YEVH3KBdKsc';
 const ADMIN_IDS = ['8279612640']; // আপনার টেলিগ্রাম আইডি দিন
 
 const LOGIN_URL = 'https://dhakapolytechnic.com/api/auth/sign-in/email';
