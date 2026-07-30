@@ -1,19 +1,15 @@
 {
-  "name": "SDPI Bot",
+  "name": "student-info-bot",
   "version": "5.0.0",
   "description": "Telegram bot for student information and results",
   "main": "bot.js",
   "scripts": {
-    "start": "node bot.js",
-    "dev": "nodemon bot.js"
+    "start": "node bot.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "telegraf": "^4.15.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
   }
 }
