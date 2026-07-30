@@ -1,20 +1,24 @@
-// bot.js - সম্পূর্ণ টেলিগ্রাম বট (অ্যাডমিন প্যানেল সহ)
+// bot.js - সম্পূর্ণ টেলিগ্রাম বট (অ্যাডমিন প্যানেল + রেজাল্ট সহ)
+require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const fs = require('fs');
 
 // ========================================
-// ১. কনফিগারেশন
+// ১. কনফিগারেশন (ENV থেকে)
 // ========================================
 
-const TELEGRAM_TOKEN = '8801488172:AAFPwi17tgFalw0u56Jf5O24YEVH3KBdKsc';
-const ADMIN_IDS = ['8279612640'];
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '8801488172:AAFPwi17tgFalw0u56Jf5O24YEVH3KBdKsc';
+const ADMIN_IDS = (process.env.ADMIN_IDS || '8279612640').split(',').map(id => id.trim());
 
-const LOGIN_URL = 'https://dhakapolytechnic.com/api/auth/sign-in/email';
-const SEARCH_URL = 'https://dhakapolytechnic.com/api/students';
-const FILE_API_URL = 'https://dhakapolytechnic.com/api/files';
-const EMAIL = 'otsshamol@gmail.com';
-const PASSWORD = 'oT$@2007';
+// এপিআই ইউআরএল
+const LOGIN_URL = process.env.LOGIN_URL || 'https://dhakapolytechnic.com/api/auth/sign-in/email';
+const SEARCH_URL = process.env.SEARCH_URL || 'https://dhakapolytechnic.com/api/students';
+const FILE_API_URL = process.env.FILE_API_URL || 'https://dhakapolytechnic.com/api/files';
+const RESULT_API_URL = process.env.RESULT_API_URL || 'https://btebresultszone.com/api/student-results';
+
+const EMAIL = process.env.EMAIL || 'otsshamol@gmail.com';
+const PASSWORD = process.env.PASSWORD || 'oT$@2007';
 
 const USERS_FILE = 'users.json';
 const HISTORY_FILE = 'history.json';
@@ -55,13 +59,14 @@ function updateUser(userId, data) {
 
 function getHistory() { return loadJSON(HISTORY_FILE); }
 function saveHistory(history) { saveJSON(HISTORY_FILE, history); }
-function addHistory(userId, roll, result) {
+function addHistory(userId, roll, result, studentInfo = null) {
     const history = getHistory();
     if (!history[userId]) history[userId] = [];
     history[userId].push({
         roll: roll,
         timestamp: new Date().toISOString(),
-        result: result ? 'found' : 'not_found'
+        result: result ? 'found' : 'not_found',
+        studentInfo: studentInfo
     });
     if (history[userId].length > 100) {
         history[userId] = history[userId].slice(-100);
@@ -171,6 +176,22 @@ class SessionManager {
             return null;
         }
     }
+
+    // রেজাল্ট চেক করার জন্য নতুন মেথড
+    async getResult(roll) {
+        try {
+            const response = await this.axiosInstance.get(
+                `${RESULT_API_URL}?roll=${roll}&curriculumId=diploma_in_engineering`
+            );
+            if (response.status === 200 && response.data.success) {
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            console.error('❌ রেজাল্ট এরর:', error.message);
+            return null;
+        }
+    }
 }
 
 const session = new SessionManager();
@@ -183,6 +204,7 @@ function isAdmin(userId) {
     return ADMIN_IDS.includes(String(userId));
 }
 
+// স্টুডেন্ট ডেটা ফরম্যাট
 function formatStudentData(student) {
     let reply = '🎓 **শিক্ষার্থীর তথ্য**\n';
     reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
@@ -204,6 +226,83 @@ function formatStudentData(student) {
     reply += `উপজেলা: ${student.upazila || 'N/A'}\n`;
     reply += `জেলা: ${student.district || 'N/A'}\n`;
     reply += `\n📌 **স্ট্যাটাস:** ${student.status || 'N/A'}`;
+    return reply;
+}
+
+// রেজাল্ট ফরম্যাট করার ফাংশন
+function formatResultData(resultData, roll) {
+    if (!resultData || !resultData.data || resultData.data.length === 0) {
+        return null;
+    }
+
+    const studentData = resultData.data[0];
+    let reply = '📊 **শিক্ষার্থীর ফলাফল**\n';
+    reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    reply += `🔢 **রোল:** ${studentData.roll || 'N/A'}\n`;
+    reply += `🏫 **ইনস্টিটিউট:** ${studentData.institute?.name || 'N/A'}\n`;
+    reply += `📚 **কারিকুলাম:** ${studentData.curriculumId || 'N/A'}\n`;
+    reply += `📅 **রেগুলেশন:** ${studentData.regulation || 'N/A'}\n\n`;
+
+    // লেটেস্ট রেজাল্ট
+    if (studentData.latestResults && studentData.latestResults.length > 0) {
+        reply += '📈 **সর্বশেষ ফলাফল:**\n';
+        reply += '━━━━━━━━━━━━━━━━━━━━\n';
+        
+        // সেমিস্টার অনুযায়ী সাজানো
+        const sortedResults = [...studentData.latestResults].sort((a, b) => a.semester - b.semester);
+        
+        for (const result of sortedResults) {
+            const semesterNum = result.semester;
+            const gpa = result.gpa || 0;
+            const status = semesterNum <= Object.keys(studentData.semesterResults || {}).length ? 
+                'পাস ✅' : 'ফেল ❌';
+            
+            reply += `📘 **সেমিস্টার ${semesterNum}:**\n`;
+            reply += `   • GPA: ${gpa.toFixed(2)}\n`;
+            reply += `   • স্ট্যাটাস: ${status}\n`;
+            reply += `   • তারিখ: ${new Date(result.date).toLocaleDateString('bn-BD')}\n`;
+            reply += `   • ফাইল: ${result.fileName || 'N/A'}\n\n`;
+        }
+    }
+
+    // সামগ্রিক অবস্থা
+    reply += '📊 **সামগ্রিক অবস্থা:**\n';
+    reply += '━━━━━━━━━━━━━━━━━━━━\n';
+    
+    let totalSemesters = 0;
+    let passedSemesters = 0;
+    
+    if (studentData.semesterResults) {
+        for (const semesterResult of studentData.semesterResults) {
+            totalSemesters++;
+            if (semesterResult.status === 'passed') {
+                passedSemesters++;
+            }
+        }
+    }
+    
+    if (totalSemesters > 0) {
+        reply += `• মোট সেমিস্টার: ${totalSemesters}\n`;
+        reply += `• পাস করা: ${passedSemesters}\n`;
+        reply += `• ফেল করা: ${totalSemesters - passedSemesters}\n`;
+        
+        // সিজিপিএ ক্যালকুলেশন
+        let totalGpa = 0;
+        let gpaCount = 0;
+        if (studentData.latestResults) {
+            for (const result of studentData.latestResults) {
+                if (result.gpa) {
+                    totalGpa += result.gpa;
+                    gpaCount++;
+                }
+            }
+        }
+        if (gpaCount > 0) {
+            const cgpa = totalGpa / gpaCount;
+            reply += `• সিজিপিএ: ${cgpa.toFixed(2)}\n`;
+        }
+    }
+
     return reply;
 }
 
@@ -334,11 +433,12 @@ bot.command('about', async (ctx) => {
         `⚡ **বৈশিষ্ট্য:**\n` +
         `• রোল দিয়ে দ্রুত খোঁজ\n` +
         `• ফটো সহ তথ্য\n` +
+        `• রেজাল্ট চেক\n` +
         `• সম্পূর্ণ ফ্রি\n` +
         `• ২৪/৭ সক্রিয়\n` +
         `• অ্যাডমিন প্যানেল\n\n` +
         `📌 **ডেভেলপার:** Oahid Towsif Shamol\n` +
-        `📅 **সংস্করণ:** 4.0 (অ্যাডমিন প্যানেল)`
+        `📅 **সংস্করণ:** 5.0 (রেজাল্ট সহ)`
     );
 });
 
@@ -579,7 +679,7 @@ bot.command('delete_user', adminOnly, async (ctx) => {
 });
 
 // ========================================
-// ৬.সি সার্চ হ্যান্ডলার
+// ৬.সি সার্চ হ্যান্ডলার (রেজাল্ট সহ)
 // ========================================
 
 bot.on('text', async (ctx) => {
@@ -602,37 +702,78 @@ bot.on('text', async (ctx) => {
         `⏳ **অনুসন্ধান করা হচ্ছে...**\n🎯 রোল: \`${roll}\``
     );
 
-    const result = await session.searchStudent(roll);
+    // প্রথমে স্টুডেন্ট তথ্য খুঁজি
+    const studentResult = await session.searchStudent(roll);
+    let studentInfo = null;
+    let studentFound = false;
 
-    if (!result || !result.rows || result.rows.length === 0) {
-        await ctx.telegram.editMessageText(
-            ctx.chat.id,
-            waitingMsg.message_id,
-            null,
-            `❌ **শিক্ষার্থী পাওয়া যায়নি!**\n\nরোল: \`${roll}\``,
-            { parse_mode: 'Markdown' }
-        );
-        addHistory(userId, roll, false);
-        return;
+    // তারপর রেজাল্ট চেক করি
+    const resultData = await session.getResult(roll);
+
+    // স্টুডেন্ট তথ্য প্রসেসিং
+    if (studentResult && studentResult.rows && studentResult.rows.length > 0) {
+        studentInfo = studentResult.rows[0];
+        studentFound = true;
     }
 
+    // ইউজার আপডেট
     const user = getUser(userId) || { total_searches: 0 };
     user.total_searches = (user.total_searches || 0) + 1;
     user.joined = user.joined || new Date().toISOString();
     updateUser(userId, user);
 
-    const student = result.rows[0];
-    const reply = formatStudentData(student);
-    addHistory(userId, roll, true);
+    // রেজাল্ট আছে কিনা চেক
+    const hasResult = resultData && resultData.success && resultData.data && resultData.data.length > 0;
 
+    // হিস্ট্রি অ্যাড
+    addHistory(userId, roll, studentFound || hasResult, studentInfo);
+
+    // ওয়েটিং মেসেজ ডিলিট
     await ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id);
 
-    const photoUrl = student.photoUrl;
-    const photoFileId = student.photoFileId;
-    const photoSent = await sendStudentPhoto(ctx, photoUrl, photoFileId, reply, roll, userId);
+    // ১. স্টুডেন্ট তথ্য দেখান (যদি পাওয়া যায়)
+    if (studentFound && studentInfo) {
+        const studentReply = formatStudentData(studentInfo);
+        const photoUrl = studentInfo.photoUrl;
+        const photoFileId = studentInfo.photoFileId;
+        
+        const photoSent = await sendStudentPhoto(ctx, photoUrl, photoFileId, studentReply, roll, userId);
+        
+        if (!photoSent) {
+            await ctx.replyWithMarkdown(`📝 **তথ্য পাওয়া গেছে (ফটো ছাড়া)**\n\n${studentReply}`);
+        }
+    }
 
-    if (!photoSent) {
-        await ctx.replyWithMarkdown(`📝 **তথ্য পাওয়া গেছে (ফটো ছাড়া)**\n\n${reply}`);
+    // ২. রেজাল্ট দেখান (যদি পাওয়া যায়)
+    if (hasResult) {
+        const resultReply = formatResultData(resultData, roll);
+        if (resultReply) {
+            await ctx.replyWithMarkdown(resultReply);
+            
+            // রেজাল্ট ফাইল লিংক (যদি থাকে)
+            if (resultData.data[0].latestResults && resultData.data[0].latestResults.length > 0) {
+                const latestResult = resultData.data[0].latestResults[0];
+                if (latestResult.fileHash) {
+                    const fileLink = `https://btebresultszone.com/api/result-file/${latestResult.fileHash}`;
+                    await ctx.replyWithMarkdown(
+                        `📄 **রেজাল্ট ফাইল ডাউনলোড:**\n` +
+                        `[ফাইল ডাউনলোড করুন](${fileLink})`
+                    );
+                }
+            }
+        }
+    }
+
+    // ৩. কিছুই পাওয়া যায়নি
+    if (!studentFound && !hasResult) {
+        await ctx.replyWithMarkdown(
+            `❌ **কোন তথ্য পাওয়া যায়নি!**\n\n` +
+            `রোল: \`${roll}\`\n\n` +
+            `🔍 নিম্নলিখিত কারণে হতে পারে:\n` +
+            `• রোল নম্বরটি ভুল\n` +
+            `• শিক্ষার্থী এখনও রেজিস্টার্ড নন\n` +
+            `• সার্ভারে সমস্যা`
+        );
     }
 });
 
@@ -721,44 +862,4 @@ bot.command('myid', async (ctx) => {
         `👑 **অ্যাডমিন?** ${isAdminUser ? '✅ হ্যাঁ' : '❌ না'}\n\n` +
         `📋 **অ্যাডমিন লিস্ট:** \`${ADMIN_IDS.join(', ')}\``
     );
-});
-
-
-// অ্যাডমিন প্যানেল - ডিবাগ ভার্সন
-bot.command('admin', adminOnly, async (ctx) => {
-    try {
-        console.log('📊 অ্যাডমিন প্যানেল খোলা হচ্ছে...');
-        const userId = ctx.from.id;
-        console.log(`👤 ইউজার: ${userId}`);
-        
-        const users = getUsers();
-        const history = getHistory();
-        const totalUsers = Object.keys(users).length;
-        let totalSearches = 0;
-        Object.values(users).forEach(u => {
-            totalSearches += (u.total_searches || 0);
-        });
-
-        const reply = 
-            `👑 **অ্যাডমিন প্যানেল**\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `📊 **পরিসংখ্যান:**\n` +
-            `• মোট ইউজার: ${totalUsers}\n` +
-            `• মোট সার্চ: ${totalSearches}\n` +
-            `• অ্যাক্টিভ ইউজার: ${Object.keys(history).length}\n\n` +
-            `⚡ **কমান্ড:**\n` +
-            `• /broadcast - ব্রডকাস্ট মেসেজ\n` +
-            `• /users - ইউজার লিস্ট\n` +
-            `• /stats_all - সব পরিসংখ্যান\n` +
-            `• /history [userId] - ইউজার হিস্ট্রি\n` +
-            `• /clear_history [userId] - হিস্ট্রি ক্লিয়ার\n` +
-            `• /delete_user [userId] - ইউজার ডিলিট\n\n` +
-            `💡 ব্যবহার: /history 123456789`;
-        
-        console.log('✅ অ্যাডমিন প্যানেল রেডি');
-        await ctx.replyWithMarkdown(reply);
-    } catch (error) {
-        console.error('Admin panel error:', error);
-        await ctx.reply(`⚠️ এরর: ${error.message}`);
-    }
 });
