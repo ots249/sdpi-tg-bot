@@ -711,3 +711,54 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
+
+// টেস্ট কমান্ড - আপনার আইডি দেখাবে
+bot.command('myid', async (ctx) => {
+    const userId = ctx.from.id;
+    const isAdminUser = isAdmin(userId);
+    await ctx.reply(
+        `🆔 **আপনার আইডি:** \`${userId}\`\n\n` +
+        `👑 **অ্যাডমিন?** ${isAdminUser ? '✅ হ্যাঁ' : '❌ না'}\n\n` +
+        `📋 **অ্যাডমিন লিস্ট:** \`${ADMIN_IDS.join(', ')}\``
+    );
+});
+
+
+// অ্যাডমিন প্যানেল - ডিবাগ ভার্সন
+bot.command('admin', adminOnly, async (ctx) => {
+    try {
+        console.log('📊 অ্যাডমিন প্যানেল খোলা হচ্ছে...');
+        const userId = ctx.from.id;
+        console.log(`👤 ইউজার: ${userId}`);
+        
+        const users = getUsers();
+        const history = getHistory();
+        const totalUsers = Object.keys(users).length;
+        let totalSearches = 0;
+        Object.values(users).forEach(u => {
+            totalSearches += (u.total_searches || 0);
+        });
+
+        const reply = 
+            `👑 **অ্যাডমিন প্যানেল**\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `📊 **পরিসংখ্যান:**\n` +
+            `• মোট ইউজার: ${totalUsers}\n` +
+            `• মোট সার্চ: ${totalSearches}\n` +
+            `• অ্যাক্টিভ ইউজার: ${Object.keys(history).length}\n\n` +
+            `⚡ **কমান্ড:**\n` +
+            `• /broadcast - ব্রডকাস্ট মেসেজ\n` +
+            `• /users - ইউজার লিস্ট\n` +
+            `• /stats_all - সব পরিসংখ্যান\n` +
+            `• /history [userId] - ইউজার হিস্ট্রি\n` +
+            `• /clear_history [userId] - হিস্ট্রি ক্লিয়ার\n` +
+            `• /delete_user [userId] - ইউজার ডিলিট\n\n` +
+            `💡 ব্যবহার: /history 123456789`;
+        
+        console.log('✅ অ্যাডমিন প্যানেল রেডি');
+        await ctx.replyWithMarkdown(reply);
+    } catch (error) {
+        console.error('Admin panel error:', error);
+        await ctx.reply(`⚠️ এরর: ${error.message}`);
+    }
+});
