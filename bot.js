@@ -639,12 +639,31 @@ bot.catch((err, ctx) => {
 });
 
 // ========================================
-// ৮. বট স্টার্ট
+// ৮. বট স্টার্ট এবং ওয়েব সার্ভার
 // ========================================
 
 console.log('🤖 বট চালু হচ্ছে...');
 console.log('👑 অ্যাডমিন আইডি:', ADMIN_IDS);
 
+// রেন্ডারের জন্য পোর্ট লিসেন
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('🤖 বট চলছে!');
+});
+
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
+// পোর্ট লিসেন শুরু করুন (Render-এর জন্য)
+const server = app.listen(port, () => {
+    console.log(`✅ ওয়েব সার্ভার চলছে পোর্ট ${port} এ`);
+});
+
+// বট লঞ্চ করুন
 bot.launch()
     .then(() => {
         console.log('✅ বট রেডি! টেলিগ্রামে /start দিন');
@@ -654,5 +673,11 @@ bot.launch()
         console.error('❌ বট লঞ্চ করতে সমস্যা:', error);
     });
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGINT', () => {
+    bot.stop('SIGINT');
+    server.close();
+});
+process.once('SIGTERM', () => {
+    bot.stop('SIGTERM');
+    server.close();
+});
