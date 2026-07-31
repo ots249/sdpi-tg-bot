@@ -1,4 +1,4 @@
-// bot.js - সম্পূর্ণ টেলিগ্রাম বট (অ্যাডমিন প্যানেল + রেজাল্ট সহ)
+// bot.js - রেজাল্ট ফরম্যাটিং ইম্প্রুভ করা
 require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
@@ -177,7 +177,6 @@ class SessionManager {
         }
     }
 
-    // রেজাল্ট চেক করার জন্য নতুন মেথড
     async getResult(roll) {
         try {
             const response = await this.axiosInstance.get(
@@ -229,13 +228,26 @@ function formatStudentData(student) {
     return reply;
 }
 
-// রেজাল্ট ফরম্যাট করার ফাংশন
+// ========================================
+// ৪.এ রেজাল্ট ফরম্যাটিং (ইম্প্রুভ করা)
+// ========================================
+
 function formatResultData(resultData, roll) {
     if (!resultData || !resultData.data || resultData.data.length === 0) {
         return null;
     }
 
-    const studentData = resultData.data[0];
+    // প্রথমে ডুপ্লিকেট ডেটা ফিল্টার করি (একই রোলের একাধিক এন্ট্রি)
+    const uniqueData = {};
+    for (const item of resultData.data) {
+        const key = `${item.roll}_${item.regulation}`;
+        if (!uniqueData[key] || item.regulation > uniqueData[key].regulation) {
+            uniqueData[key] = item;
+        }
+    }
+    
+    const studentData = Object.values(uniqueData)[0]; // সবচেয়ে রিসেন্ট রেগুলেশন নিই
+    
     let reply = '📊 **শিক্ষার্থীর ফলাফল**\n';
     reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
     reply += `🔢 **রোল:** ${studentData.roll || 'N/A'}\n`;
@@ -243,24 +255,62 @@ function formatResultData(resultData, roll) {
     reply += `📚 **কারিকুলাম:** ${studentData.curriculumId || 'N/A'}\n`;
     reply += `📅 **রেগুলেশন:** ${studentData.regulation || 'N/A'}\n\n`;
 
-    // লেটেস্ট রেজাল্ট
-    if (studentData.latestResults && studentData.latestResults.length > 0) {
-        reply += '📈 **সর্বশেষ ফলাফল:**\n';
-        reply += '━━━━━━━━━━━━━━━━━━━━\n';
+    // সেমিস্টার ভিত্তিক রেজাল্ট
+    if (studentData.semesterResults && studentData.semesterResults.length > 0) {
+        reply += '📈 **সেমিস্টার ভিত্তিক ফলাফল:**\n';
+        reply += '━━━━━━━━━━━━━━━━━━━━\n\n';
         
-        const sortedResults = [...studentData.latestResults].sort((a, b) => a.semester - b.semester);
+        // সেমিস্টার অনুযায়ী সাজানো
+        const sortedSemesters = [...studentData.semesterResults].sort((a, b) => a.semester - b.semester);
         
-        for (const result of sortedResults) {
-            const semesterNum = result.semester;
-            const gpa = result.gpa || 0;
-            const status = semesterNum <= Object.keys(studentData.semesterResults || {}).length ? 
-                'পাস ✅' : 'ফেল ❌';
+        for (const semester of sortedSemesters) {
+            const semesterNum = semester.semester;
+            const status = semester.status || 'unknown';
             
-            reply += `📘 **সেমিস্টার ${semesterNum}:**\n`;
-            reply += `   • GPA: ${gpa.toFixed(2)}\n`;
-            reply += `   • স্ট্যাটাস: ${status}\n`;
-            reply += `   • তারিখ: ${new Date(result.date).toLocaleDateString('bn-BD')}\n`;
-            reply += `   • ফাইল: ${result.fileName || 'N/A'}\n\n`;
+            // স্ট্যাটাস ডিটারমাইন
+            let statusEmoji = '❓';
+            let statusText = 'অজানা';
+            if (status === 'passed') {
+                statusEmoji = '✅';
+                statusText = 'পাস';
+            } else if (status === 'failed') {
+                statusEmoji = '❌';
+                statusText = 'ফেল';
+            }
+            
+            reply += `📘 **সেমিস্টার ${semesterNum}:** ${statusEmoji} ${statusText}\n`;
+            
+            // GPA দেখান (যদি থাকে)
+            if (semester.results && semester.results.length > 0) {
+                const result = semester.results[0];
+                if (result.gpa !== undefined && result.gpa !== null) {
+                    reply += `   • GPA: ${result.gpa.toFixed(2)}\n`;
+                }
+                
+                // ফেইলড সাবজেক্ট
+                if (result.failedSubjects && result.failedSubjects.length > 0) {
+                    reply += `   • ফেইল করা সাবজেক্ট:\n`;
+                    for (const sub of result.failedSubjects) {
+                        reply += `     - ${sub.subName} (${sub.subCode})\n`;
+                    }
+                }
+            }
+            
+            // কারেন্ট ফেইলড সাবজেক্ট (যদি থাকে)
+            if (studentData.currentFailedSubjects && studentData.currentFailedSubjects.length > 0 && semesterNum === sortedSemesters[sortedSemesters.length - 1].semester) {
+                // শুধু লেটেস্ট সেমিস্টারের জন্য দেখাই
+                const currentFails = studentData.currentFailedSubjects.filter(
+                    sub => sub.originSemester === semesterNum || !sub.originSemester
+                );
+                if (currentFails.length > 0 && !semester.results?.[0]?.failedSubjects) {
+                    reply += `   • বর্তমান ফেইল সাবজেক্ট:\n`;
+                    for (const sub of currentFails) {
+                        reply += `     - ${sub.subName} (${sub.subCode})\n`;
+                    }
+                }
+            }
+            
+            reply += '\n';
         }
     }
 
@@ -270,27 +320,31 @@ function formatResultData(resultData, roll) {
     
     let totalSemesters = 0;
     let passedSemesters = 0;
+    let failedSemesters = 0;
     
     if (studentData.semesterResults) {
-        for (const semesterResult of studentData.semesterResults) {
+        for (const semester of studentData.semesterResults) {
             totalSemesters++;
-            if (semesterResult.status === 'passed') {
+            if (semester.status === 'passed') {
                 passedSemesters++;
+            } else if (semester.status === 'failed') {
+                failedSemesters++;
             }
         }
     }
     
     if (totalSemesters > 0) {
         reply += `• মোট সেমিস্টার: ${totalSemesters}\n`;
-        reply += `• পাস করা: ${passedSemesters}\n`;
-        reply += `• ফেল করা: ${totalSemesters - passedSemesters}\n`;
+        reply += `• পাস: ${passedSemesters} ✅\n`;
+        reply += `• ফেল: ${failedSemesters} ❌\n`;
         
+        // সিজিপিএ ক্যালকুলেশন
         let totalGpa = 0;
         let gpaCount = 0;
-        if (studentData.latestResults) {
-            for (const result of studentData.latestResults) {
-                if (result.gpa) {
-                    totalGpa += result.gpa;
+        if (studentData.semesterResults) {
+            for (const semester of studentData.semesterResults) {
+                if (semester.results && semester.results.length > 0 && semester.results[0].gpa !== undefined) {
+                    totalGpa += semester.results[0].gpa;
                     gpaCount++;
                 }
             }
@@ -298,6 +352,24 @@ function formatResultData(resultData, roll) {
         if (gpaCount > 0) {
             const cgpa = totalGpa / gpaCount;
             reply += `• সিজিপিএ: ${cgpa.toFixed(2)}\n`;
+        }
+    }
+
+    // ফেইলড সাবজেক্টের লিস্ট (সব)
+    if (studentData.currentFailedSubjects && studentData.currentFailedSubjects.length > 0) {
+        reply += '\n⚠️ **ফেইল করা সাবজেক্টসমূহ:**\n';
+        reply += '━━━━━━━━━━━━━━━━━━━━\n';
+        const uniqueFails = [];
+        const seen = new Set();
+        for (const sub of studentData.currentFailedSubjects) {
+            const key = `${sub.subCode}_${sub.originSemester || 0}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                uniqueFails.push(sub);
+            }
+        }
+        for (const sub of uniqueFails) {
+            reply += `• ${sub.subName} (${sub.subCode}) - সেমিস্টার ${sub.originSemester || 'N/A'}\n`;
         }
     }
 
@@ -436,7 +508,7 @@ bot.command('about', async (ctx) => {
         `• ২৪/৭ সক্রিয়\n` +
         `• অ্যাডমিন প্যানেল\n\n` +
         `📌 **ডেভেলপার:** Oahid Towsif Shamol\n` +
-        `📅 **সংস্করণ:** 5.0 (রেজাল্ট সহ)`
+        `📅 **সংস্করণ:** 5.1 (রেজাল্ট ইম্প্রুভ)`
     );
 });
 
@@ -747,18 +819,6 @@ bot.on('text', async (ctx) => {
         const resultReply = formatResultData(resultData, roll);
         if (resultReply) {
             await ctx.replyWithMarkdown(resultReply);
-            
-            // রেজাল্ট ফাইল লিংক (যদি থাকে)
-            if (resultData.data[0].latestResults && resultData.data[0].latestResults.length > 0) {
-                const latestResult = resultData.data[0].latestResults[0];
-                if (latestResult.fileHash) {
-                    const fileLink = `https://btebresultszone.com/api/result-file/${latestResult.fileHash}`;
-                    await ctx.replyWithMarkdown(
-                        `📄 **রেজাল্ট ফাইল ডাউনলোড:**\n` +
-                        `[ফাইল ডাউনলোড করুন](${fileLink})`
-                    );
-                }
-            }
         }
     }
 
