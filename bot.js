@@ -1,4 +1,4 @@
-// bot.js - ফিক্স করা ভার্সন
+// bot.js - ফিক্স করা (কমান্ড কাজ করবে)
 require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
@@ -421,12 +421,12 @@ async function adminOnly(ctx, next) {
     try {
         const userId = ctx.from.id;
         console.log(`🔍 Admin check for user: ${userId}`);
-        console.log(`📋 Admin list: ${ADMIN_IDS}`);
         
         if (!isAdmin(userId)) {
             await ctx.reply('⛔ This command is only for admins.');
             return;
         }
+        console.log(`✅ Admin verified: ${userId}`);
         await next();
     } catch (error) {
         console.error('Admin middleware error:', error);
@@ -435,13 +435,13 @@ async function adminOnly(ctx, next) {
 }
 
 // ========================================
-// ৬.এ ইউজার কমান্ড
+// ৬.এ ইউজার কমান্ড (সিম্পল রিপ্লাই)
 // ========================================
 
 bot.start(async (ctx) => {
     try {
         const userId = ctx.from.id;
-        console.log(`✅ /start command from user: ${userId}`);
+        console.log(`✅ /start from: ${userId}`);
         
         let user = getUser(userId);
         if (!user) {
@@ -451,69 +451,69 @@ bot.start(async (ctx) => {
             };
             updateUser(userId, user);
         }
+        
         const isAdminUser = isAdmin(userId);
-        await ctx.replyWithMarkdown(
-            `🎓 **Student Information Bot**\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `🔍 Send your roll number.\n` +
-            `Example: \`240363\` or \`2403631\`\n\n` +
-            `📊 **Your Status:**\n` +
-            `• Total Searches: ${user.total_searches || 0}\n` +
-            `${isAdminUser ? '• 👑 Admin' : ''}\n\n` +
-            `📸 Get complete information with photo!` +
-            `${isAdminUser ? '\n\n/admin - Admin Panel' : ''}`
-        );
+        let msg = `🎓 Student Information Bot\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        msg += `🔍 Send your roll number.\n`;
+        msg += `Example: 240363 or 2403631\n\n`;
+        msg += `📊 Your Status:\n`;
+        msg += `• Total Searches: ${user.total_searches || 0}\n`;
+        if (isAdminUser) msg += `• 👑 Admin\n`;
+        msg += `\n📸 Get complete information with photo!`;
+        if (isAdminUser) msg += `\n\n/admin - Admin Panel`;
+        
+        await ctx.reply(msg);
     } catch (error) {
-        console.error('Start command error:', error);
-        await ctx.reply('⚠️ Error starting bot. Please try again.');
+        console.error('Start error:', error);
+        await ctx.reply('⚠️ Error starting bot.');
     }
 });
 
 bot.command('help', async (ctx) => {
     try {
-        console.log(`✅ /help command from user: ${ctx.from.id}`);
+        console.log(`✅ /help from: ${ctx.from.id}`);
         const isAdminUser = isAdmin(ctx.from.id);
-        let help = `📖 **How to use:**\n\n` +
-            `1️⃣ /start - Start the bot\n` +
-            `2️⃣ Send your roll number\n` +
-            `3️⃣ Bot will find the information\n\n` +
-            `⚡ **Commands:**\n` +
-            `• /about - About the bot\n` +
-            `• /stats - Your statistics`;
+        let msg = `📖 How to use:\n\n`;
+        msg += `1️⃣ /start - Start the bot\n`;
+        msg += `2️⃣ Send your roll number\n`;
+        msg += `3️⃣ Bot will find the information\n\n`;
+        msg += `⚡ Commands:\n`;
+        msg += `• /about - About the bot\n`;
+        msg += `• /stats - Your statistics`;
         if (isAdminUser) {
-            help += `\n\n👑 **Admin Commands:**\n` +
-                `• /admin - Admin Panel\n` +
-                `• /broadcast - Broadcast message\n` +
-                `• /users - User list\n` +
-                `• /stats_all - All statistics\n` +
-                `• /history [userId] - User history`;
+            msg += `\n\n👑 Admin Commands:\n`;
+            msg += `• /admin - Admin Panel\n`;
+            msg += `• /broadcast - Broadcast message\n`;
+            msg += `• /users - User list\n`;
+            msg += `• /stats_all - All statistics\n`;
+            msg += `• /history [userId] - User history`;
         }
-        await ctx.replyWithMarkdown(help);
+        await ctx.reply(msg);
     } catch (error) {
-        console.error('Help command error:', error);
+        console.error('Help error:', error);
         await ctx.reply('⚠️ Error showing help.');
     }
 });
 
 bot.command('about', async (ctx) => {
     try {
-        console.log(`✅ /about command from user: ${ctx.from.id}`);
-        await ctx.replyWithMarkdown(
-            `🤖 **About Bot:**\n\n` +
-            `Dhaka Polytechnic Institute\n` +
-            `Student Information Search Bot.\n\n` +
-            `⚡ **Features:**\n` +
-            `• Quick search by roll\n` +
-            `• Information with photo\n` +
-            `• Result check\n` +
-            `• Completely free\n` +
-            `• 24/7 active\n` +
-            `• Admin panel\n\n` +
-            `📌 **Developer:** Oahid Towsif Shamol\n` +
-            `📅 **Version:** 5.2 (Result Fix)`
-        );
+        console.log(`✅ /about from: ${ctx.from.id}`);
+        let msg = `🤖 About Bot:\n\n`;
+        msg += `Dhaka Polytechnic Institute\n`;
+        msg += `Student Information Search Bot.\n\n`;
+        msg += `⚡ Features:\n`;
+        msg += `• Quick search by roll\n`;
+        msg += `• Information with photo\n`;
+        msg += `• Result check\n`;
+        msg += `• Completely free\n`;
+        msg += `• 24/7 active\n`;
+        msg += `• Admin panel\n\n`;
+        msg += `📌 Developer: Oahid Towsif Shamol\n`;
+        msg += `📅 Version: 5.2 (Result Fix)`;
+        await ctx.reply(msg);
     } catch (error) {
-        console.error('About command error:', error);
+        console.error('About error:', error);
         await ctx.reply('⚠️ Error showing about info.');
     }
 });
@@ -521,21 +521,20 @@ bot.command('about', async (ctx) => {
 bot.command('stats', async (ctx) => {
     try {
         const userId = ctx.from.id;
-        console.log(`✅ /stats command from user: ${userId}`);
+        console.log(`✅ /stats from: ${userId}`);
         const user = getUser(userId);
         if (!user) {
             await ctx.reply('❌ Profile not found. Use /start.');
             return;
         }
-        await ctx.replyWithMarkdown(
-            `📊 **Your Statistics**\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `📅 **Joined:** ${(user.joined || 'N/A').slice(0, 10)}\n` +
-            `🔢 **Total Searches:** ${user.total_searches || 0}\n\n` +
-            `🎯 Send roll number for new search.`
-        );
+        let msg = `📊 Your Statistics\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+        msg += `📅 Joined: ${(user.joined || 'N/A').slice(0, 10)}\n`;
+        msg += `🔢 Total Searches: ${user.total_searches || 0}\n\n`;
+        msg += `🎯 Send roll number for new search.`;
+        await ctx.reply(msg);
     } catch (error) {
-        console.error('Stats command error:', error);
+        console.error('Stats error:', error);
         await ctx.reply('⚠️ Error showing statistics.');
     }
 });
@@ -543,27 +542,25 @@ bot.command('stats', async (ctx) => {
 bot.command('myid', async (ctx) => {
     try {
         const userId = ctx.from.id;
-        console.log(`✅ /myid command from user: ${userId}`);
+        console.log(`✅ /myid from: ${userId}`);
         const isAdminUser = isAdmin(userId);
-        await ctx.reply(
-            `🆔 **Your ID:** \`${userId}\`\n\n` +
-            `👑 **Admin?** ${isAdminUser ? '✅ Yes' : '❌ No'}\n\n` +
-            `📋 **Admin List:** \`${ADMIN_IDS.join(', ')}\``
-        );
+        let msg = `🆔 Your ID: ${userId}\n\n`;
+        msg += `👑 Admin? ${isAdminUser ? '✅ Yes' : '❌ No'}\n\n`;
+        msg += `📋 Admin List: ${ADMIN_IDS.join(', ')}`;
+        await ctx.reply(msg);
     } catch (error) {
-        console.error('Myid command error:', error);
+        console.error('Myid error:', error);
         await ctx.reply('⚠️ Error getting your ID.');
     }
 });
 
 // ========================================
-// ৬.বি অ্যাডমিন কমান্ড
+// ৬.বি অ্যাডমিন কমান্ড (সিম্পল রিপ্লাই)
 // ========================================
 
-// অ্যাডমিন প্যানেল
 bot.command('admin', adminOnly, async (ctx) => {
     try {
-        console.log(`✅ /admin command from admin: ${ctx.from.id}`);
+        console.log(`✅ /admin from admin: ${ctx.from.id}`);
         const users = getUsers();
         const history = getHistory();
         const totalUsers = Object.keys(users).length;
@@ -572,22 +569,22 @@ bot.command('admin', adminOnly, async (ctx) => {
             totalSearches += (u.total_searches || 0);
         });
 
-        await ctx.replyWithMarkdown(
-            `👑 **Admin Panel**\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `📊 **Statistics:**\n` +
-            `• Total Users: ${totalUsers}\n` +
-            `• Total Searches: ${totalSearches}\n` +
-            `• Active Users: ${Object.keys(history).length}\n\n` +
-            `⚡ **Commands:**\n` +
-            `• /broadcast - Broadcast message\n` +
-            `• /users - User list\n` +
-            `• /stats_all - All statistics\n` +
-            `• /history [userId] - User history\n` +
-            `• /clear_history [userId] - Clear history\n` +
-            `• /delete_user [userId] - Delete user\n\n` +
-            `💡 Usage: /history 123456789`
-        );
+        let msg = `👑 Admin Panel\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        msg += `📊 Statistics:\n`;
+        msg += `• Total Users: ${totalUsers}\n`;
+        msg += `• Total Searches: ${totalSearches}\n`;
+        msg += `• Active Users: ${Object.keys(history).length}\n\n`;
+        msg += `⚡ Commands:\n`;
+        msg += `• /broadcast - Broadcast message\n`;
+        msg += `• /users - User list\n`;
+        msg += `• /stats_all - All statistics\n`;
+        msg += `• /history [userId] - User history\n`;
+        msg += `• /clear_history [userId] - Clear history\n`;
+        msg += `• /delete_user [userId] - Delete user\n\n`;
+        msg += `💡 Usage: /history 123456789`;
+        
+        await ctx.reply(msg);
     } catch (error) {
         console.error('Admin panel error:', error);
         await ctx.reply('⚠️ Error loading admin panel.');
@@ -599,7 +596,7 @@ bot.command('broadcast', adminOnly, async (ctx) => {
     try {
         const message = ctx.message.text.replace('/broadcast', '').trim();
         if (!message) {
-            await ctx.reply('📢 **Send broadcast message:**\n\n`/broadcast Your message`');
+            await ctx.reply('📢 Send broadcast message:\n/broadcast Your message');
             return;
         }
 
@@ -607,12 +604,12 @@ bot.command('broadcast', adminOnly, async (ctx) => {
         const userIds = Object.keys(users);
         let sent = 0, failed = 0;
 
-        const statusMsg = await ctx.reply(`⏳ Sending message to ${userIds.length} users...`);
+        const statusMsg = await ctx.reply(`⏳ Sending to ${userIds.length} users...`);
 
         for (const userId of userIds) {
             try {
                 await ctx.telegram.sendMessage(userId, 
-                    `📢 **Admin Message:**\n\n${message}`
+                    `📢 Admin Message:\n\n${message}`
                 );
                 sent++;
             } catch (error) {
@@ -625,10 +622,7 @@ bot.command('broadcast', adminOnly, async (ctx) => {
             ctx.chat.id,
             statusMsg.message_id,
             null,
-            `✅ **Broadcast Complete!**\n\n` +
-            `📤 Success: ${sent}\n` +
-            `❌ Failed: ${failed}\n` +
-            `👥 Total: ${userIds.length}`
+            `✅ Broadcast Complete!\n\n📤 Success: ${sent}\n❌ Failed: ${failed}\n👥 Total: ${userIds.length}`
         );
     } catch (error) {
         console.error('Broadcast error:', error);
@@ -647,21 +641,21 @@ bot.command('users', adminOnly, async (ctx) => {
             return;
         }
 
-        let reply = `👥 **User List**\n━━━━━━━━━━━━━━━━━━━━\n\n`;
+        let msg = `👥 User List\n━━━━━━━━━━━━━━━━━━━━\n\n`;
         const recentUsers = userIds.slice(-20);
         
         for (const id of recentUsers) {
             const user = users[id];
             const name = user.name || 'Unknown';
             const searches = user.total_searches || 0;
-            reply += `🆔 ${id}\n`;
-            reply += `👤 ${name}\n`;
-            reply += `🔢 ${searches} searches\n`;
-            reply += `📅 ${(user.joined || 'N/A').slice(0, 10)}\n\n`;
+            msg += `🆔 ${id}\n`;
+            msg += `👤 ${name}\n`;
+            msg += `🔢 ${searches} searches\n`;
+            msg += `📅 ${(user.joined || 'N/A').slice(0, 10)}\n\n`;
         }
 
-        reply += `📊 Total: ${userIds.length} users`;
-        await ctx.replyWithMarkdown(reply);
+        msg += `📊 Total: ${userIds.length} users`;
+        await ctx.reply(msg);
     } catch (error) {
         console.error('Users list error:', error);
         await ctx.reply('⚠️ Error loading user list.');
@@ -688,18 +682,18 @@ bot.command('stats_all', adminOnly, async (ctx) => {
             if (recent.length > 0) activeUsers++;
         }
 
-        await ctx.replyWithMarkdown(
-            `📊 **Complete Statistics**\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `👥 **Users:**\n` +
-            `• Total: ${totalUsers}\n` +
-            `• Active last 7 days: ${activeUsers}\n\n` +
-            `🔍 **Searches:**\n` +
-            `• Total: ${totalSearches}\n` +
-            `• Avg/User: ${totalUsers > 0 ? (totalSearches/totalUsers).toFixed(1) : 0}\n\n` +
-            `📈 **Activity:**\n` +
-            `• Total history: ${Object.values(history).reduce((sum, h) => sum + h.length, 0)}`
-        );
+        let msg = `📊 Complete Statistics\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        msg += `👥 Users:\n`;
+        msg += `• Total: ${totalUsers}\n`;
+        msg += `• Active last 7 days: ${activeUsers}\n\n`;
+        msg += `🔍 Searches:\n`;
+        msg += `• Total: ${totalSearches}\n`;
+        msg += `• Avg/User: ${totalUsers > 0 ? (totalSearches/totalUsers).toFixed(1) : 0}\n\n`;
+        msg += `📈 Activity:\n`;
+        msg += `• Total history: ${Object.values(history).reduce((sum, h) => sum + h.length, 0)}`;
+        
+        await ctx.reply(msg);
     } catch (error) {
         console.error('Stats all error:', error);
         await ctx.reply('⚠️ Error loading statistics.');
@@ -713,7 +707,7 @@ bot.command('history', adminOnly, async (ctx) => {
         const targetUserId = parts[1];
 
         if (!targetUserId) {
-            await ctx.reply('❌ Provide user ID:\n`/history 123456789`');
+            await ctx.reply('❌ Provide user ID:\n/history 123456789');
             return;
         }
 
@@ -726,24 +720,24 @@ bot.command('history', adminOnly, async (ctx) => {
         }
 
         const user = getUser(targetUserId);
-        let reply = `📜 **User History**\n`;
-        reply += `━━━━━━━━━━━━━━━━━━━━\n`;
-        reply += `🆔 ${targetUserId}\n`;
+        let msg = `📜 User History\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `🆔 ${targetUserId}\n`;
         if (user) {
-            reply += `👤 Name: ${user.name || 'N/A'}\n`;
-            reply += `🔢 Total searches: ${user.total_searches || 0}\n`;
+            msg += `👤 Name: ${user.name || 'N/A'}\n`;
+            msg += `🔢 Total searches: ${user.total_searches || 0}\n`;
         }
-        reply += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
         const recent = userHistory.slice(-10).reverse();
         for (const entry of recent) {
-            reply += `🎯 Roll: ${entry.roll}\n`;
-            reply += `📅 ${new Date(entry.timestamp).toLocaleString()}\n`;
-            reply += `${entry.result === 'found' ? '✅ Found' : '❌ Not found'}\n\n`;
+            msg += `🎯 Roll: ${entry.roll}\n`;
+            msg += `📅 ${new Date(entry.timestamp).toLocaleString()}\n`;
+            msg += `${entry.result === 'found' ? '✅ Found' : '❌ Not found'}\n\n`;
         }
 
-        reply += `📊 Total: ${userHistory.length} searches`;
-        await ctx.replyWithMarkdown(reply);
+        msg += `📊 Total: ${userHistory.length} searches`;
+        await ctx.reply(msg);
     } catch (error) {
         console.error('History error:', error);
         await ctx.reply('⚠️ Error loading history.');
@@ -757,7 +751,7 @@ bot.command('clear_history', adminOnly, async (ctx) => {
         const targetUserId = parts[1];
 
         if (!targetUserId) {
-            await ctx.reply('❌ Provide user ID:\n`/clear_history 123456789`');
+            await ctx.reply('❌ Provide user ID:\n/clear_history 123456789');
             return;
         }
 
@@ -782,7 +776,7 @@ bot.command('delete_user', adminOnly, async (ctx) => {
         const targetUserId = parts[1];
 
         if (!targetUserId) {
-            await ctx.reply('❌ Provide user ID:\n`/delete_user 123456789`');
+            await ctx.reply('❌ Provide user ID:\n/delete_user 123456789');
             return;
         }
 
@@ -818,20 +812,14 @@ bot.on('text', async (ctx) => {
 
         if (roll.startsWith('/')) return;
 
-        console.log(`🔍 Search request from user: ${userId}, roll: ${roll}`);
+        console.log(`🔍 Search: user=${userId}, roll=${roll}`);
 
         if (!/^\d{6,7}$/.test(roll)) {
-            await ctx.replyWithMarkdown(
-                `❌ **Invalid Roll Number!**\n\n` +
-                `Roll number must be 6 or 7 digits.\n` +
-                `Example: \`240363\` or \`2403631\``
-            );
+            await ctx.reply(`❌ Invalid Roll Number!\n\nRoll number must be 6 or 7 digits.\nExample: 240363 or 2403631`);
             return;
         }
 
-        const waitingMsg = await ctx.replyWithMarkdown(
-            `⏳ **Searching...**\n🎯 Roll: \`${roll}\``
-        );
+        const waitingMsg = await ctx.reply(`⏳ Searching...\n🎯 Roll: ${roll}`);
 
         const studentResult = await session.searchStudent(roll);
         let studentInfo = null;
@@ -863,25 +851,20 @@ bot.on('text', async (ctx) => {
             const photoSent = await sendStudentPhoto(ctx, photoUrl, photoFileId, studentReply, roll, userId);
             
             if (!photoSent) {
-                await ctx.replyWithMarkdown(`📝 **Information found (without photo)**\n\n${studentReply}`);
+                await ctx.reply(`📝 Information found (without photo)\n\n${studentReply}`);
             }
         }
 
         if (hasResult) {
             const resultReply = formatResultData(resultData, roll);
             if (resultReply) {
-                await ctx.replyWithMarkdown(resultReply);
+                await ctx.reply(resultReply);
             }
         }
 
         if (!studentFound && !hasResult) {
-            await ctx.replyWithMarkdown(
-                `❌ **No information found!**\n\n` +
-                `Roll: \`${roll}\`\n\n` +
-                `🔍 Possible reasons:\n` +
-                `• Wrong roll number\n` +
-                `• Student not registered yet\n` +
-                `• Server issue`
+            await ctx.reply(
+                `❌ No information found!\n\nRoll: ${roll}\n\n🔍 Possible reasons:\n• Wrong roll number\n• Student not registered yet\n• Server issue`
             );
         }
     } catch (error) {
