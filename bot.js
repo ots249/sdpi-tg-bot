@@ -1,4 +1,4 @@
-// bot.js - রেজাল্ট ফরম্যাটিং ইম্প্রুভ করা
+// bot.js - রেজাল্ট ফরম্যাটিং সম্পূর্ণ রিফ্যাক্টর করা
 require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
@@ -229,7 +229,7 @@ function formatStudentData(student) {
 }
 
 // ========================================
-// ৪.এ রেজাল্ট ফরম্যাটিং (ইম্প্রুভ করা)
+// ৪.এ রেজাল্ট ফরম্যাটিং (সঠিকভাবে)
 // ========================================
 
 function formatResultData(resultData, roll) {
@@ -237,16 +237,21 @@ function formatResultData(resultData, roll) {
         return null;
     }
 
-    // প্রথমে ডুপ্লিকেট ডেটা ফিল্টার করি (একই রোলের একাধিক এন্ট্রি)
-    const uniqueData = {};
+    // ডুপ্লিকেট ডেটা ফিল্টার - শুধু মেইন ডেটা নিই (রেগুলেশন 2022)
+    let mainData = null;
     for (const item of resultData.data) {
-        const key = `${item.roll}_${item.regulation}`;
-        if (!uniqueData[key] || item.regulation > uniqueData[key].regulation) {
-            uniqueData[key] = item;
+        if (item.regulation === 2022 && item.semesterResults && item.semesterResults.length > 0) {
+            mainData = item;
+            break;
         }
     }
     
-    const studentData = Object.values(uniqueData)[0]; // সবচেয়ে রিসেন্ট রেগুলেশন নিই
+    // যদি 2022 না পাওয়া যায়, তাহলে যেকোনো একটা নিই
+    if (!mainData) {
+        mainData = resultData.data[0];
+    }
+    
+    const studentData = mainData;
     
     let reply = '📊 **শিক্ষার্থীর ফলাফল**\n';
     reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
@@ -260,8 +265,14 @@ function formatResultData(resultData, roll) {
         reply += '📈 **সেমিস্টার ভিত্তিক ফলাফল:**\n';
         reply += '━━━━━━━━━━━━━━━━━━━━\n\n';
         
-        // সেমিস্টার অনুযায়ী সাজানো
-        const sortedSemesters = [...studentData.semesterResults].sort((a, b) => a.semester - b.semester);
+        // সেমিস্টার অনুযায়ী সাজানো (শুধু 1 এবং 2)
+        const sortedSemesters = studentData.semesterResults
+            .filter(s => s.semester > 0) // সেমিস্টার 0 বাদ
+            .sort((a, b) => a.semester - b.semester);
+        
+        if (sortedSemesters.length === 0) {
+            reply += '⚠️ কোনো সেমিস্টার ফলাফল পাওয়া যায়নি।\n';
+        }
         
         for (const semester of sortedSemesters) {
             const semesterNum = semester.semester;
@@ -280,7 +291,7 @@ function formatResultData(resultData, roll) {
             
             reply += `📘 **সেমিস্টার ${semesterNum}:** ${statusEmoji} ${statusText}\n`;
             
-            // GPA দেখান (যদি থাকে)
+            // GPA দেখান
             if (semester.results && semester.results.length > 0) {
                 const result = semester.results[0];
                 if (result.gpa !== undefined && result.gpa !== null) {
@@ -291,21 +302,9 @@ function formatResultData(resultData, roll) {
                 if (result.failedSubjects && result.failedSubjects.length > 0) {
                     reply += `   • ফেইল করা সাবজেক্ট:\n`;
                     for (const sub of result.failedSubjects) {
-                        reply += `     - ${sub.subName} (${sub.subCode})\n`;
-                    }
-                }
-            }
-            
-            // কারেন্ট ফেইলড সাবজেক্ট (যদি থাকে)
-            if (studentData.currentFailedSubjects && studentData.currentFailedSubjects.length > 0 && semesterNum === sortedSemesters[sortedSemesters.length - 1].semester) {
-                // শুধু লেটেস্ট সেমিস্টারের জন্য দেখাই
-                const currentFails = studentData.currentFailedSubjects.filter(
-                    sub => sub.originSemester === semesterNum || !sub.originSemester
-                );
-                if (currentFails.length > 0 && !semester.results?.[0]?.failedSubjects) {
-                    reply += `   • বর্তমান ফেইল সাবজেক্ট:\n`;
-                    for (const sub of currentFails) {
-                        reply += `     - ${sub.subName} (${sub.subCode})\n`;
+                        if (!sub.passed) {
+                            reply += `     - ${sub.subName} (${sub.subCode})\n`;
+                        }
                     }
                 }
             }
@@ -324,11 +323,13 @@ function formatResultData(resultData, roll) {
     
     if (studentData.semesterResults) {
         for (const semester of studentData.semesterResults) {
-            totalSemesters++;
-            if (semester.status === 'passed') {
-                passedSemesters++;
-            } else if (semester.status === 'failed') {
-                failedSemesters++;
+            if (semester.semester > 0) { // সেমিস্টার 0 বাদ
+                totalSemesters++;
+                if (semester.status === 'passed') {
+                    passedSemesters++;
+                } else if (semester.status === 'failed') {
+                    failedSemesters++;
+                }
             }
         }
     }
@@ -338,14 +339,16 @@ function formatResultData(resultData, roll) {
         reply += `• পাস: ${passedSemesters} ✅\n`;
         reply += `• ফেল: ${failedSemesters} ❌\n`;
         
-        // সিজিপিএ ক্যালকুলেশন
+        // সিজিপিএ ক্যালকুলেশন (শুধু পাস করা সেমিস্টারের)
         let totalGpa = 0;
         let gpaCount = 0;
         if (studentData.semesterResults) {
             for (const semester of studentData.semesterResults) {
-                if (semester.results && semester.results.length > 0 && semester.results[0].gpa !== undefined) {
-                    totalGpa += semester.results[0].gpa;
-                    gpaCount++;
+                if (semester.semester > 0 && semester.status === 'passed') {
+                    if (semester.results && semester.results.length > 0 && semester.results[0].gpa !== undefined) {
+                        totalGpa += semester.results[0].gpa;
+                        gpaCount++;
+                    }
                 }
             }
         }
@@ -355,21 +358,14 @@ function formatResultData(resultData, roll) {
         }
     }
 
-    // ফেইলড সাবজেক্টের লিস্ট (সব)
+    // ফেইলড সাবজেক্টের লিস্ট (বর্তমান)
     if (studentData.currentFailedSubjects && studentData.currentFailedSubjects.length > 0) {
-        reply += '\n⚠️ **ফেইল করা সাবজেক্টসমূহ:**\n';
+        reply += '\n⚠️ **বর্তমানে ফেইল করা সাবজেক্টসমূহ:**\n';
         reply += '━━━━━━━━━━━━━━━━━━━━\n';
-        const uniqueFails = [];
-        const seen = new Set();
         for (const sub of studentData.currentFailedSubjects) {
-            const key = `${sub.subCode}_${sub.originSemester || 0}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                uniqueFails.push(sub);
+            if (!sub.passed) {
+                reply += `• ${sub.subName} (${sub.subCode}) - সেমিস্টার ${sub.originSemester || 'N/A'}\n`;
             }
-        }
-        for (const sub of uniqueFails) {
-            reply += `• ${sub.subName} (${sub.subCode}) - সেমিস্টার ${sub.originSemester || 'N/A'}\n`;
         }
     }
 
@@ -508,7 +504,7 @@ bot.command('about', async (ctx) => {
         `• ২৪/৭ সক্রিয়\n` +
         `• অ্যাডমিন প্যানেল\n\n` +
         `📌 **ডেভেলপার:** Oahid Towsif Shamol\n` +
-        `📅 **সংস্করণ:** 5.1 (রেজাল্ট ইম্প্রুভ)`
+        `📅 **সংস্করণ:** 5.2 (রেজাল্ট ফিক্স)`
     );
 });
 
