@@ -1,11 +1,11 @@
-// bot.js - রেজাল্ট ফরম্যাটিং সম্পূর্ণ রিফ্যাক্টর করা
+// bot.js - ফিক্স করা ভার্সন
 require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const fs = require('fs');
 
 // ========================================
-// ১. কনফিগারেশন (ENV থেকে)
+// ১. কনফিগারেশন
 // ========================================
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '8801488172:AAFPwi17tgFalw0u56Jf5O24YEVH3KBdKsc';
@@ -205,39 +205,35 @@ function isAdmin(userId) {
 
 // স্টুডেন্ট ডেটা ফরম্যাট
 function formatStudentData(student) {
-    let reply = '🎓 **শিক্ষার্থীর তথ্য**\n';
+    let reply = '🎓 **Student Information**\n';
     reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-    reply += `👤 **নাম (বাংলা):** ${student.nameBn || 'N/A'}\n`;
-    reply += `👤 **নাম (ইংরেজি):** ${student.name || 'N/A'}\n`;
-    reply += `🔢 **রোল:** ${student.roll || 'N/A'}\n`;
-    reply += `📋 **রেজি:** ${student.reg || 'N/A'}\n`;
-    reply += `📚 **বিভাগ:** ${student.dept || 'N/A'}\n`;
-    reply += `🕐 **শিফট:** ${student.shift || 'N/A'}\n`;
-    reply += `📅 **সেশন:** ${student.session || 'N/A'}\n\n`;
-    reply += `👨‍👦 **পিতা:** ${student.fatherBn || 'N/A'}\n`;
-    reply += `👩‍👦 **মাতা:** ${student.motherBn || 'N/A'}\n\n`;
-    reply += `🩸 **ব্লাড গ্রুপ:** ${student.bloodGroup || 'N/A'}\n`;
-    reply += `📱 **মোবাইল:** ${student.mobile || 'N/A'}\n`;
-    reply += `📞 **গার্ডিয়ান:** ${student.guardianMobile || 'N/A'}\n\n`;
-    reply += `🏠 **ঠিকানা:**\n`;
-    reply += `গ্রাম: ${student.village || 'N/A'}\n`;
-    reply += `পোস্ট: ${student.post || 'N/A'}\n`;
-    reply += `উপজেলা: ${student.upazila || 'N/A'}\n`;
-    reply += `জেলা: ${student.district || 'N/A'}\n`;
-    reply += `\n📌 **স্ট্যাটাস:** ${student.status || 'N/A'}`;
+    reply += `👤 **Name (Bangla):** ${student.nameBn || 'N/A'}\n`;
+    reply += `👤 **Name (English):** ${student.name || 'N/A'}\n`;
+    reply += `🔢 **Roll:** ${student.roll || 'N/A'}\n`;
+    reply += `📋 **Reg:** ${student.reg || 'N/A'}\n`;
+    reply += `📚 **Department:** ${student.dept || 'N/A'}\n`;
+    reply += `🕐 **Shift:** ${student.shift || 'N/A'}\n`;
+    reply += `📅 **Session:** ${student.session || 'N/A'}\n\n`;
+    reply += `👨‍👦 **Father:** ${student.fatherBn || 'N/A'}\n`;
+    reply += `👩‍👦 **Mother:** ${student.motherBn || 'N/A'}\n\n`;
+    reply += `🩸 **Blood Group:** ${student.bloodGroup || 'N/A'}\n`;
+    reply += `📱 **Mobile:** ${student.mobile || 'N/A'}\n`;
+    reply += `📞 **Guardian:** ${student.guardianMobile || 'N/A'}\n\n`;
+    reply += `🏠 **Address:**\n`;
+    reply += `Village: ${student.village || 'N/A'}\n`;
+    reply += `Post: ${student.post || 'N/A'}\n`;
+    reply += `Upazila: ${student.upazila || 'N/A'}\n`;
+    reply += `District: ${student.district || 'N/A'}\n`;
+    reply += `\n📌 **Status:** ${student.status || 'N/A'}`;
     return reply;
 }
 
-// ========================================
-// ৪.এ রেজাল্ট ফরম্যাটিং (সঠিকভাবে)
-// ========================================
-
+// রেজাল্ট ফরম্যাট
 function formatResultData(resultData, roll) {
     if (!resultData || !resultData.data || resultData.data.length === 0) {
         return null;
     }
 
-    // ডুপ্লিকেট ডেটা ফিল্টার - শুধু মেইন ডেটা নিই (রেগুলেশন 2022)
     let mainData = null;
     for (const item of resultData.data) {
         if (item.regulation === 2022 && item.semesterResults && item.semesterResults.length > 0) {
@@ -246,61 +242,55 @@ function formatResultData(resultData, roll) {
         }
     }
     
-    // যদি 2022 না পাওয়া যায়, তাহলে যেকোনো একটা নিই
     if (!mainData) {
         mainData = resultData.data[0];
     }
     
     const studentData = mainData;
     
-    let reply = '📊 **শিক্ষার্থীর ফলাফল**\n';
+    let reply = '📊 **Student Result**\n';
     reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-    reply += `🔢 **রোল:** ${studentData.roll || 'N/A'}\n`;
-    reply += `🏫 **ইনস্টিটিউট:** ${studentData.institute?.name || 'N/A'}\n`;
-    reply += `📚 **কারিকুলাম:** ${studentData.curriculumId || 'N/A'}\n`;
-    reply += `📅 **রেগুলেশন:** ${studentData.regulation || 'N/A'}\n\n`;
+    reply += `🔢 **Roll:** ${studentData.roll || 'N/A'}\n`;
+    reply += `🏫 **Institute:** ${studentData.institute?.name || 'N/A'}\n`;
+    reply += `📚 **Curriculum:** ${studentData.curriculumId || 'N/A'}\n`;
+    reply += `📅 **Regulation:** ${studentData.regulation || 'N/A'}\n\n`;
 
-    // সেমিস্টার ভিত্তিক রেজাল্ট
     if (studentData.semesterResults && studentData.semesterResults.length > 0) {
-        reply += '📈 **সেমিস্টার ভিত্তিক ফলাফল:**\n';
+        reply += '📈 **Semester-wise Results:**\n';
         reply += '━━━━━━━━━━━━━━━━━━━━\n\n';
         
-        // সেমিস্টার অনুযায়ী সাজানো (শুধু 1 এবং 2)
         const sortedSemesters = studentData.semesterResults
-            .filter(s => s.semester > 0) // সেমিস্টার 0 বাদ
+            .filter(s => s.semester > 0)
             .sort((a, b) => a.semester - b.semester);
         
         if (sortedSemesters.length === 0) {
-            reply += '⚠️ কোনো সেমিস্টার ফলাফল পাওয়া যায়নি।\n';
+            reply += '⚠️ No semester results found.\n';
         }
         
         for (const semester of sortedSemesters) {
             const semesterNum = semester.semester;
             const status = semester.status || 'unknown';
             
-            // স্ট্যাটাস ডিটারমাইন
             let statusEmoji = '❓';
-            let statusText = 'অজানা';
+            let statusText = 'Unknown';
             if (status === 'passed') {
                 statusEmoji = '✅';
-                statusText = 'পাস';
+                statusText = 'Passed';
             } else if (status === 'failed') {
                 statusEmoji = '❌';
-                statusText = 'ফেল';
+                statusText = 'Failed';
             }
             
-            reply += `📘 **সেমিস্টার ${semesterNum}:** ${statusEmoji} ${statusText}\n`;
+            reply += `📘 **Semester ${semesterNum}:** ${statusEmoji} ${statusText}\n`;
             
-            // GPA দেখান
             if (semester.results && semester.results.length > 0) {
                 const result = semester.results[0];
                 if (result.gpa !== undefined && result.gpa !== null) {
                     reply += `   • GPA: ${result.gpa.toFixed(2)}\n`;
                 }
                 
-                // ফেইলড সাবজেক্ট
                 if (result.failedSubjects && result.failedSubjects.length > 0) {
-                    reply += `   • ফেইল করা সাবজেক্ট:\n`;
+                    reply += `   • Failed Subjects:\n`;
                     for (const sub of result.failedSubjects) {
                         if (!sub.passed) {
                             reply += `     - ${sub.subName} (${sub.subCode})\n`;
@@ -313,8 +303,7 @@ function formatResultData(resultData, roll) {
         }
     }
 
-    // সামগ্রিক অবস্থা
-    reply += '📊 **সামগ্রিক অবস্থা:**\n';
+    reply += '📊 **Overall Status:**\n';
     reply += '━━━━━━━━━━━━━━━━━━━━\n';
     
     let totalSemesters = 0;
@@ -323,7 +312,7 @@ function formatResultData(resultData, roll) {
     
     if (studentData.semesterResults) {
         for (const semester of studentData.semesterResults) {
-            if (semester.semester > 0) { // সেমিস্টার 0 বাদ
+            if (semester.semester > 0) {
                 totalSemesters++;
                 if (semester.status === 'passed') {
                     passedSemesters++;
@@ -335,11 +324,10 @@ function formatResultData(resultData, roll) {
     }
     
     if (totalSemesters > 0) {
-        reply += `• মোট সেমিস্টার: ${totalSemesters}\n`;
-        reply += `• পাস: ${passedSemesters} ✅\n`;
-        reply += `• ফেল: ${failedSemesters} ❌\n`;
+        reply += `• Total Semesters: ${totalSemesters}\n`;
+        reply += `• Passed: ${passedSemesters} ✅\n`;
+        reply += `• Failed: ${failedSemesters} ❌\n`;
         
-        // সিজিপিএ ক্যালকুলেশন (শুধু পাস করা সেমিস্টারের)
         let totalGpa = 0;
         let gpaCount = 0;
         if (studentData.semesterResults) {
@@ -354,17 +342,16 @@ function formatResultData(resultData, roll) {
         }
         if (gpaCount > 0) {
             const cgpa = totalGpa / gpaCount;
-            reply += `• সিজিপিএ: ${cgpa.toFixed(2)}\n`;
+            reply += `• CGPA: ${cgpa.toFixed(2)}\n`;
         }
     }
 
-    // ফেইলড সাবজেক্টের লিস্ট (বর্তমান)
     if (studentData.currentFailedSubjects && studentData.currentFailedSubjects.length > 0) {
-        reply += '\n⚠️ **বর্তমানে ফেইল করা সাবজেক্টসমূহ:**\n';
+        reply += '\n⚠️ **Currently Failed Subjects:**\n';
         reply += '━━━━━━━━━━━━━━━━━━━━\n';
         for (const sub of studentData.currentFailedSubjects) {
             if (!sub.passed) {
-                reply += `• ${sub.subName} (${sub.subCode}) - সেমিস্টার ${sub.originSemester || 'N/A'}\n`;
+                reply += `• ${sub.subName} (${sub.subCode}) - Semester ${sub.originSemester || 'N/A'}\n`;
             }
         }
     }
@@ -432,14 +419,18 @@ const bot = new Telegraf(TELEGRAM_TOKEN);
 // ========== অ্যাডমিন মিডলওয়্যার ==========
 async function adminOnly(ctx, next) {
     try {
-        if (!isAdmin(ctx.from.id)) {
-            await ctx.reply('⛔ এই কমান্ড শুধু অ্যাডমিনদের জন্য।');
+        const userId = ctx.from.id;
+        console.log(`🔍 Admin check for user: ${userId}`);
+        console.log(`📋 Admin list: ${ADMIN_IDS}`);
+        
+        if (!isAdmin(userId)) {
+            await ctx.reply('⛔ This command is only for admins.');
             return;
         }
         await next();
     } catch (error) {
         console.error('Admin middleware error:', error);
-        await ctx.reply('⚠️ অ্যাডমিন চেক করতে সমস্যা হয়েছে।');
+        await ctx.reply('⚠️ Admin check failed.');
     }
 }
 
@@ -448,80 +439,121 @@ async function adminOnly(ctx, next) {
 // ========================================
 
 bot.start(async (ctx) => {
-    const userId = ctx.from.id;
-    let user = getUser(userId);
-    if (!user) {
-        user = {
-            total_searches: 0,
-            joined: new Date().toISOString()
-        };
-        updateUser(userId, user);
+    try {
+        const userId = ctx.from.id;
+        console.log(`✅ /start command from user: ${userId}`);
+        
+        let user = getUser(userId);
+        if (!user) {
+            user = {
+                total_searches: 0,
+                joined: new Date().toISOString()
+            };
+            updateUser(userId, user);
+        }
+        const isAdminUser = isAdmin(userId);
+        await ctx.replyWithMarkdown(
+            `🎓 **Student Information Bot**\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `🔍 Send your roll number.\n` +
+            `Example: \`240363\` or \`2403631\`\n\n` +
+            `📊 **Your Status:**\n` +
+            `• Total Searches: ${user.total_searches || 0}\n` +
+            `${isAdminUser ? '• 👑 Admin' : ''}\n\n` +
+            `📸 Get complete information with photo!` +
+            `${isAdminUser ? '\n\n/admin - Admin Panel' : ''}`
+        );
+    } catch (error) {
+        console.error('Start command error:', error);
+        await ctx.reply('⚠️ Error starting bot. Please try again.');
     }
-    const isAdminUser = isAdmin(userId);
-    await ctx.replyWithMarkdown(
-        `🎓 **শিক্ষার্থী তথ্য অনুসন্ধান বট**\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `🔍 আপনার রোল নম্বর পাঠান।\n` +
-        `যেমন: \`240363\` অথবা \`2403631\`\n\n` +
-        `📊 **আপনার স্ট্যাটাস:**\n` +
-        `• মোট সার্চ: ${user.total_searches || 0}\n` +
-        `${isAdminUser ? '• 👑 অ্যাডমিন' : ''}\n\n` +
-        `📸 ফটো সহ সম্পূর্ণ তথ্য পাবেন!` +
-        `${isAdminUser ? '\n\n/admin - অ্যাডমিন প্যানেল' : ''}`
-    );
 });
 
-bot.help(async (ctx) => {
-    const isAdminUser = isAdmin(ctx.from.id);
-    let help = `📖 **কীভাবে ব্যবহার করবেন:**\n\n` +
-        `1️⃣ /start - বট চালু করুন\n` +
-        `2️⃣ আপনার রোল নম্বর পাঠান\n` +
-        `3️⃣ বট তথ্য খুঁজে দেবে\n\n` +
-        `⚡ **কমান্ড:**\n` +
-        `• /about - বট সম্পর্কে\n` +
-        `• /stats - আপনার পরিসংখ্যান`;
-    if (isAdminUser) {
-        help += `\n\n👑 **অ্যাডমিন কমান্ড:**\n` +
-            `• /admin - অ্যাডমিন প্যানেল\n` +
-            `• /broadcast - ব্রডকাস্ট মেসেজ\n` +
-            `• /users - ইউজার লিস্ট\n` +
-            `• /stats_all - সব পরিসংখ্যান\n` +
-            `• /history [userId] - ইউজার হিস্ট্রি`;
+bot.command('help', async (ctx) => {
+    try {
+        console.log(`✅ /help command from user: ${ctx.from.id}`);
+        const isAdminUser = isAdmin(ctx.from.id);
+        let help = `📖 **How to use:**\n\n` +
+            `1️⃣ /start - Start the bot\n` +
+            `2️⃣ Send your roll number\n` +
+            `3️⃣ Bot will find the information\n\n` +
+            `⚡ **Commands:**\n` +
+            `• /about - About the bot\n` +
+            `• /stats - Your statistics`;
+        if (isAdminUser) {
+            help += `\n\n👑 **Admin Commands:**\n` +
+                `• /admin - Admin Panel\n` +
+                `• /broadcast - Broadcast message\n` +
+                `• /users - User list\n` +
+                `• /stats_all - All statistics\n` +
+                `• /history [userId] - User history`;
+        }
+        await ctx.replyWithMarkdown(help);
+    } catch (error) {
+        console.error('Help command error:', error);
+        await ctx.reply('⚠️ Error showing help.');
     }
-    await ctx.replyWithMarkdown(help);
 });
 
 bot.command('about', async (ctx) => {
-    await ctx.replyWithMarkdown(
-        `🤖 **বট সম্পর্কে:**\n\n` +
-        `ঢাকা পলিটেকনিক ইনস্টিটিউটের\n` +
-        `শিক্ষার্থীদের তথ্য অনুসন্ধান বট।\n\n` +
-        `⚡ **বৈশিষ্ট্য:**\n` +
-        `• রোল দিয়ে দ্রুত খোঁজ\n` +
-        `• ফটো সহ তথ্য\n` +
-        `• রেজাল্ট চেক\n` +
-        `• সম্পূর্ণ ফ্রি\n` +
-        `• ২৪/৭ সক্রিয়\n` +
-        `• অ্যাডমিন প্যানেল\n\n` +
-        `📌 **ডেভেলপার:** Oahid Towsif Shamol\n` +
-        `📅 **সংস্করণ:** 5.2 (রেজাল্ট ফিক্স)`
-    );
+    try {
+        console.log(`✅ /about command from user: ${ctx.from.id}`);
+        await ctx.replyWithMarkdown(
+            `🤖 **About Bot:**\n\n` +
+            `Dhaka Polytechnic Institute\n` +
+            `Student Information Search Bot.\n\n` +
+            `⚡ **Features:**\n` +
+            `• Quick search by roll\n` +
+            `• Information with photo\n` +
+            `• Result check\n` +
+            `• Completely free\n` +
+            `• 24/7 active\n` +
+            `• Admin panel\n\n` +
+            `📌 **Developer:** Oahid Towsif Shamol\n` +
+            `📅 **Version:** 5.2 (Result Fix)`
+        );
+    } catch (error) {
+        console.error('About command error:', error);
+        await ctx.reply('⚠️ Error showing about info.');
+    }
 });
 
 bot.command('stats', async (ctx) => {
-    const userId = ctx.from.id;
-    const user = getUser(userId);
-    if (!user) {
-        await ctx.reply('❌ প্রোফাইল পাওয়া যায়নি। /start দিন।');
-        return;
+    try {
+        const userId = ctx.from.id;
+        console.log(`✅ /stats command from user: ${userId}`);
+        const user = getUser(userId);
+        if (!user) {
+            await ctx.reply('❌ Profile not found. Use /start.');
+            return;
+        }
+        await ctx.replyWithMarkdown(
+            `📊 **Your Statistics**\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `📅 **Joined:** ${(user.joined || 'N/A').slice(0, 10)}\n` +
+            `🔢 **Total Searches:** ${user.total_searches || 0}\n\n` +
+            `🎯 Send roll number for new search.`
+        );
+    } catch (error) {
+        console.error('Stats command error:', error);
+        await ctx.reply('⚠️ Error showing statistics.');
     }
-    await ctx.replyWithMarkdown(
-        `📊 **আপনার পরিসংখ্যান**\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `📅 **জয়েন:** ${(user.joined || 'N/A').slice(0, 10)}\n` +
-        `🔢 **মোট সার্চ:** ${user.total_searches || 0}\n\n` +
-        `🎯 রোল নম্বর পাঠান নতুন সার্চ করতে।`
-    );
+});
+
+bot.command('myid', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        console.log(`✅ /myid command from user: ${userId}`);
+        const isAdminUser = isAdmin(userId);
+        await ctx.reply(
+            `🆔 **Your ID:** \`${userId}\`\n\n` +
+            `👑 **Admin?** ${isAdminUser ? '✅ Yes' : '❌ No'}\n\n` +
+            `📋 **Admin List:** \`${ADMIN_IDS.join(', ')}\``
+        );
+    } catch (error) {
+        console.error('Myid command error:', error);
+        await ctx.reply('⚠️ Error getting your ID.');
+    }
 });
 
 // ========================================
@@ -531,6 +563,7 @@ bot.command('stats', async (ctx) => {
 // অ্যাডমিন প্যানেল
 bot.command('admin', adminOnly, async (ctx) => {
     try {
+        console.log(`✅ /admin command from admin: ${ctx.from.id}`);
         const users = getUsers();
         const history = getHistory();
         const totalUsers = Object.keys(users).length;
@@ -540,294 +573,320 @@ bot.command('admin', adminOnly, async (ctx) => {
         });
 
         await ctx.replyWithMarkdown(
-            `👑 **অ্যাডমিন প্যানেল**\n` +
+            `👑 **Admin Panel**\n` +
             `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `📊 **পরিসংখ্যান:**\n` +
-            `• মোট ইউজার: ${totalUsers}\n` +
-            `• মোট সার্চ: ${totalSearches}\n` +
-            `• অ্যাক্টিভ ইউজার: ${Object.keys(history).length}\n\n` +
-            `⚡ **কমান্ড:**\n` +
-            `• /broadcast - ব্রডকাস্ট মেসেজ\n` +
-            `• /users - ইউজার লিস্ট\n` +
-            `• /stats_all - সব পরিসংখ্যান\n` +
-            `• /history [userId] - ইউজার হিস্ট্রি\n` +
-            `• /clear_history [userId] - হিস্ট্রি ক্লিয়ার\n` +
-            `• /delete_user [userId] - ইউজার ডিলিট\n\n` +
-            `💡 ব্যবহার: /history 123456789`
+            `📊 **Statistics:**\n` +
+            `• Total Users: ${totalUsers}\n` +
+            `• Total Searches: ${totalSearches}\n` +
+            `• Active Users: ${Object.keys(history).length}\n\n` +
+            `⚡ **Commands:**\n` +
+            `• /broadcast - Broadcast message\n` +
+            `• /users - User list\n` +
+            `• /stats_all - All statistics\n` +
+            `• /history [userId] - User history\n` +
+            `• /clear_history [userId] - Clear history\n` +
+            `• /delete_user [userId] - Delete user\n\n` +
+            `💡 Usage: /history 123456789`
         );
     } catch (error) {
         console.error('Admin panel error:', error);
-        await ctx.reply('⚠️ অ্যাডমিন প্যানেল লোড করতে সমস্যা হয়েছে।');
+        await ctx.reply('⚠️ Error loading admin panel.');
     }
 });
 
 // ব্রডকাস্ট
 bot.command('broadcast', adminOnly, async (ctx) => {
-    const message = ctx.message.text.replace('/broadcast', '').trim();
-    if (!message) {
-        await ctx.reply('📢 **ব্রডকাস্ট মেসেজ পাঠান:**\n\n`/broadcast আপনার মেসেজ`');
-        return;
-    }
-
-    const users = getUsers();
-    const userIds = Object.keys(users);
-    let sent = 0, failed = 0;
-
-    const statusMsg = await ctx.reply(`⏳ ${userIds.length} জন ইউজারকে মেসেজ পাঠানো হচ্ছে...`);
-
-    for (const userId of userIds) {
-        try {
-            await ctx.telegram.sendMessage(userId, 
-                `📢 **অ্যাডমিন থেকে বার্তা:**\n\n${message}`
-            );
-            sent++;
-        } catch (error) {
-            failed++;
+    try {
+        const message = ctx.message.text.replace('/broadcast', '').trim();
+        if (!message) {
+            await ctx.reply('📢 **Send broadcast message:**\n\n`/broadcast Your message`');
+            return;
         }
-        await new Promise(resolve => setTimeout(resolve, 50));
-    }
 
-    await ctx.telegram.editMessageText(
-        ctx.chat.id,
-        statusMsg.message_id,
-        null,
-        `✅ **ব্রডকাস্ট সম্পন্ন!**\n\n` +
-        `📤 সফল: ${sent}\n` +
-        `❌ ব্যর্থ: ${failed}\n` +
-        `👥 মোট: ${userIds.length}`
-    );
+        const users = getUsers();
+        const userIds = Object.keys(users);
+        let sent = 0, failed = 0;
+
+        const statusMsg = await ctx.reply(`⏳ Sending message to ${userIds.length} users...`);
+
+        for (const userId of userIds) {
+            try {
+                await ctx.telegram.sendMessage(userId, 
+                    `📢 **Admin Message:**\n\n${message}`
+                );
+                sent++;
+            } catch (error) {
+                failed++;
+            }
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+
+        await ctx.telegram.editMessageText(
+            ctx.chat.id,
+            statusMsg.message_id,
+            null,
+            `✅ **Broadcast Complete!**\n\n` +
+            `📤 Success: ${sent}\n` +
+            `❌ Failed: ${failed}\n` +
+            `👥 Total: ${userIds.length}`
+        );
+    } catch (error) {
+        console.error('Broadcast error:', error);
+        await ctx.reply('⚠️ Error sending broadcast.');
+    }
 });
 
 // ইউজার লিস্ট
 bot.command('users', adminOnly, async (ctx) => {
-    const users = getUsers();
-    const userIds = Object.keys(users);
-    
-    if (userIds.length === 0) {
-        await ctx.reply('📭 কোনো ইউজার নেই।');
-        return;
-    }
+    try {
+        const users = getUsers();
+        const userIds = Object.keys(users);
+        
+        if (userIds.length === 0) {
+            await ctx.reply('📭 No users found.');
+            return;
+        }
 
-    let reply = `👥 **ইউজার লিস্ট**\n━━━━━━━━━━━━━━━━━━━━\n\n`;
-    const recentUsers = userIds.slice(-20);
-    
-    for (const id of recentUsers) {
-        const user = users[id];
-        const name = user.name || 'Unknown';
-        const searches = user.total_searches || 0;
-        reply += `🆔 ${id}\n`;
-        reply += `👤 ${name}\n`;
-        reply += `🔢 ${searches} সার্চ\n`;
-        reply += `📅 ${(user.joined || 'N/A').slice(0, 10)}\n\n`;
-    }
+        let reply = `👥 **User List**\n━━━━━━━━━━━━━━━━━━━━\n\n`;
+        const recentUsers = userIds.slice(-20);
+        
+        for (const id of recentUsers) {
+            const user = users[id];
+            const name = user.name || 'Unknown';
+            const searches = user.total_searches || 0;
+            reply += `🆔 ${id}\n`;
+            reply += `👤 ${name}\n`;
+            reply += `🔢 ${searches} searches\n`;
+            reply += `📅 ${(user.joined || 'N/A').slice(0, 10)}\n\n`;
+        }
 
-    reply += `📊 মোট: ${userIds.length} জন ইউজার`;
-    await ctx.replyWithMarkdown(reply);
+        reply += `📊 Total: ${userIds.length} users`;
+        await ctx.replyWithMarkdown(reply);
+    } catch (error) {
+        console.error('Users list error:', error);
+        await ctx.reply('⚠️ Error loading user list.');
+    }
 });
 
 // সব পরিসংখ্যান
 bot.command('stats_all', adminOnly, async (ctx) => {
-    const users = getUsers();
-    const history = getHistory();
-    const totalUsers = Object.keys(users).length;
-    let totalSearches = 0;
-    let activeUsers = 0;
+    try {
+        const users = getUsers();
+        const history = getHistory();
+        const totalUsers = Object.keys(users).length;
+        let totalSearches = 0;
+        let activeUsers = 0;
 
-    Object.values(users).forEach(u => {
-        totalSearches += (u.total_searches || 0);
-    });
+        Object.values(users).forEach(u => {
+            totalSearches += (u.total_searches || 0);
+        });
 
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    for (const [userId, histories] of Object.entries(history)) {
-        const recent = histories.filter(h => new Date(h.timestamp) > sevenDaysAgo);
-        if (recent.length > 0) activeUsers++;
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        for (const [userId, histories] of Object.entries(history)) {
+            const recent = histories.filter(h => new Date(h.timestamp) > sevenDaysAgo);
+            if (recent.length > 0) activeUsers++;
+        }
+
+        await ctx.replyWithMarkdown(
+            `📊 **Complete Statistics**\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `👥 **Users:**\n` +
+            `• Total: ${totalUsers}\n` +
+            `• Active last 7 days: ${activeUsers}\n\n` +
+            `🔍 **Searches:**\n` +
+            `• Total: ${totalSearches}\n` +
+            `• Avg/User: ${totalUsers > 0 ? (totalSearches/totalUsers).toFixed(1) : 0}\n\n` +
+            `📈 **Activity:**\n` +
+            `• Total history: ${Object.values(history).reduce((sum, h) => sum + h.length, 0)}`
+        );
+    } catch (error) {
+        console.error('Stats all error:', error);
+        await ctx.reply('⚠️ Error loading statistics.');
     }
-
-    await ctx.replyWithMarkdown(
-        `📊 **সম্পূর্ণ পরিসংখ্যান**\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `👥 **ইউজার:**\n` +
-        `• মোট: ${totalUsers}\n` +
-        `• গত ৭ দিনে সক্রিয়: ${activeUsers}\n\n` +
-        `🔍 **সার্চ:**\n` +
-        `• মোট: ${totalSearches}\n` +
-        `• গড়/ইউজার: ${totalUsers > 0 ? (totalSearches/totalUsers).toFixed(1) : 0}\n\n` +
-        `📈 **অ্যাক্টিভিটি:**\n` +
-        `• মোট হিস্ট্রি: ${Object.values(history).reduce((sum, h) => sum + h.length, 0)}`
-    );
 });
 
 // ইউজার হিস্ট্রি
 bot.command('history', adminOnly, async (ctx) => {
-    const parts = ctx.message.text.split(' ');
-    const targetUserId = parts[1];
+    try {
+        const parts = ctx.message.text.split(' ');
+        const targetUserId = parts[1];
 
-    if (!targetUserId) {
-        await ctx.reply('❌ ইউজার আইডি দিন:\n`/history 123456789`');
-        return;
+        if (!targetUserId) {
+            await ctx.reply('❌ Provide user ID:\n`/history 123456789`');
+            return;
+        }
+
+        const history = getHistory();
+        const userHistory = history[targetUserId] || [];
+
+        if (userHistory.length === 0) {
+            await ctx.reply(`📭 User ${targetUserId} has no history.`);
+            return;
+        }
+
+        const user = getUser(targetUserId);
+        let reply = `📜 **User History**\n`;
+        reply += `━━━━━━━━━━━━━━━━━━━━\n`;
+        reply += `🆔 ${targetUserId}\n`;
+        if (user) {
+            reply += `👤 Name: ${user.name || 'N/A'}\n`;
+            reply += `🔢 Total searches: ${user.total_searches || 0}\n`;
+        }
+        reply += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        const recent = userHistory.slice(-10).reverse();
+        for (const entry of recent) {
+            reply += `🎯 Roll: ${entry.roll}\n`;
+            reply += `📅 ${new Date(entry.timestamp).toLocaleString()}\n`;
+            reply += `${entry.result === 'found' ? '✅ Found' : '❌ Not found'}\n\n`;
+        }
+
+        reply += `📊 Total: ${userHistory.length} searches`;
+        await ctx.replyWithMarkdown(reply);
+    } catch (error) {
+        console.error('History error:', error);
+        await ctx.reply('⚠️ Error loading history.');
     }
-
-    const history = getHistory();
-    const userHistory = history[targetUserId] || [];
-
-    if (userHistory.length === 0) {
-        await ctx.reply(`📭 ইউজার ${targetUserId} এর কোনো হিস্ট্রি নেই।`);
-        return;
-    }
-
-    const user = getUser(targetUserId);
-    let reply = `📜 **ইউজার হিস্ট্রি**\n`;
-    reply += `━━━━━━━━━━━━━━━━━━━━\n`;
-    reply += `🆔 ${targetUserId}\n`;
-    if (user) {
-        reply += `👤 নাম: ${user.name || 'N/A'}\n`;
-        reply += `🔢 মোট সার্চ: ${user.total_searches || 0}\n`;
-    }
-    reply += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-    const recent = userHistory.slice(-10).reverse();
-    for (const entry of recent) {
-        reply += `🎯 রোল: ${entry.roll}\n`;
-        reply += `📅 ${new Date(entry.timestamp).toLocaleString()}\n`;
-        reply += `${entry.result === 'found' ? '✅ পাওয়া গেছে' : '❌ পাওয়া যায়নি'}\n\n`;
-    }
-
-    reply += `📊 মোট: ${userHistory.length}টি সার্চ`;
-    await ctx.replyWithMarkdown(reply);
 });
 
 // হিস্ট্রি ক্লিয়ার
 bot.command('clear_history', adminOnly, async (ctx) => {
-    const parts = ctx.message.text.split(' ');
-    const targetUserId = parts[1];
+    try {
+        const parts = ctx.message.text.split(' ');
+        const targetUserId = parts[1];
 
-    if (!targetUserId) {
-        await ctx.reply('❌ ইউজার আইডি দিন:\n`/clear_history 123456789`');
-        return;
-    }
+        if (!targetUserId) {
+            await ctx.reply('❌ Provide user ID:\n`/clear_history 123456789`');
+            return;
+        }
 
-    const history = getHistory();
-    if (history[targetUserId]) {
-        delete history[targetUserId];
-        saveHistory(history);
-        await ctx.reply(`✅ ইউজার ${targetUserId} এর হিস্ট্রি ক্লিয়ার করা হয়েছে।`);
-    } else {
-        await ctx.reply(`❌ ইউজার ${targetUserId} এর কোনো হিস্ট্রি নেই।`);
+        const history = getHistory();
+        if (history[targetUserId]) {
+            delete history[targetUserId];
+            saveHistory(history);
+            await ctx.reply(`✅ User ${targetUserId}'s history cleared.`);
+        } else {
+            await ctx.reply(`❌ User ${targetUserId} has no history.`);
+        }
+    } catch (error) {
+        console.error('Clear history error:', error);
+        await ctx.reply('⚠️ Error clearing history.');
     }
 });
 
 // ইউজার ডিলিট
 bot.command('delete_user', adminOnly, async (ctx) => {
-    const parts = ctx.message.text.split(' ');
-    const targetUserId = parts[1];
+    try {
+        const parts = ctx.message.text.split(' ');
+        const targetUserId = parts[1];
 
-    if (!targetUserId) {
-        await ctx.reply('❌ ইউজার আইডি দিন:\n`/delete_user 123456789`');
-        return;
-    }
-
-    const users = getUsers();
-    if (users[targetUserId]) {
-        delete users[targetUserId];
-        saveUsers(users);
-        
-        const history = getHistory();
-        if (history[targetUserId]) {
-            delete history[targetUserId];
-            saveHistory(history);
+        if (!targetUserId) {
+            await ctx.reply('❌ Provide user ID:\n`/delete_user 123456789`');
+            return;
         }
-        
-        await ctx.reply(`✅ ইউজার ${targetUserId} ডিলিট করা হয়েছে।`);
-    } else {
-        await ctx.reply(`❌ ইউজার ${targetUserId} পাওয়া যায়নি।`);
+
+        const users = getUsers();
+        if (users[targetUserId]) {
+            delete users[targetUserId];
+            saveUsers(users);
+            
+            const history = getHistory();
+            if (history[targetUserId]) {
+                delete history[targetUserId];
+                saveHistory(history);
+            }
+            
+            await ctx.reply(`✅ User ${targetUserId} deleted.`);
+        } else {
+            await ctx.reply(`❌ User ${targetUserId} not found.`);
+        }
+    } catch (error) {
+        console.error('Delete user error:', error);
+        await ctx.reply('⚠️ Error deleting user.');
     }
 });
 
 // ========================================
-// ৬.সি সার্চ হ্যান্ডলার (রেজাল্ট সহ)
+// ৬.সি সার্চ হ্যান্ডলার
 // ========================================
 
 bot.on('text', async (ctx) => {
-    const userId = ctx.from.id;
-    const roll = ctx.message.text.trim();
+    try {
+        const userId = ctx.from.id;
+        const roll = ctx.message.text.trim();
 
-    if (roll.startsWith('/')) return;
+        if (roll.startsWith('/')) return;
 
-    // রোল ভ্যালিডেশন - ৬ বা ৭ ডিজিট
-    if (!/^\d{6,7}$/.test(roll)) {
-        await ctx.replyWithMarkdown(
-            `❌ **ভুল রোল নম্বর!**\n\n` +
-            `রোল নম্বর ৬ বা ৭ ডিজিটের হয়।\n` +
-            `যেমন: \`240363\` অথবা \`2403631\``
-        );
-        return;
-    }
+        console.log(`🔍 Search request from user: ${userId}, roll: ${roll}`);
 
-    const waitingMsg = await ctx.replyWithMarkdown(
-        `⏳ **অনুসন্ধান করা হচ্ছে...**\n🎯 রোল: \`${roll}\``
-    );
-
-    // প্রথমে স্টুডেন্ট তথ্য খুঁজি
-    const studentResult = await session.searchStudent(roll);
-    let studentInfo = null;
-    let studentFound = false;
-
-    // তারপর রেজাল্ট চেক করি
-    const resultData = await session.getResult(roll);
-
-    // স্টুডেন্ট তথ্য প্রসেসিং
-    if (studentResult && studentResult.rows && studentResult.rows.length > 0) {
-        studentInfo = studentResult.rows[0];
-        studentFound = true;
-    }
-
-    // ইউজার আপডেট
-    const user = getUser(userId) || { total_searches: 0 };
-    user.total_searches = (user.total_searches || 0) + 1;
-    user.joined = user.joined || new Date().toISOString();
-    updateUser(userId, user);
-
-    // রেজাল্ট আছে কিনা চেক
-    const hasResult = resultData && resultData.success && resultData.data && resultData.data.length > 0;
-
-    // হিস্ট্রি অ্যাড
-    addHistory(userId, roll, studentFound || hasResult, studentInfo);
-
-    // ওয়েটিং মেসেজ ডিলিট
-    await ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id);
-
-    // ১. স্টুডেন্ট তথ্য দেখান (যদি পাওয়া যায়)
-    if (studentFound && studentInfo) {
-        const studentReply = formatStudentData(studentInfo);
-        const photoUrl = studentInfo.photoUrl;
-        const photoFileId = studentInfo.photoFileId;
-        
-        const photoSent = await sendStudentPhoto(ctx, photoUrl, photoFileId, studentReply, roll, userId);
-        
-        if (!photoSent) {
-            await ctx.replyWithMarkdown(`📝 **তথ্য পাওয়া গেছে (ফটো ছাড়া)**\n\n${studentReply}`);
+        if (!/^\d{6,7}$/.test(roll)) {
+            await ctx.replyWithMarkdown(
+                `❌ **Invalid Roll Number!**\n\n` +
+                `Roll number must be 6 or 7 digits.\n` +
+                `Example: \`240363\` or \`2403631\``
+            );
+            return;
         }
-    }
 
-    // ২. রেজাল্ট দেখান (যদি পাওয়া যায়)
-    if (hasResult) {
-        const resultReply = formatResultData(resultData, roll);
-        if (resultReply) {
-            await ctx.replyWithMarkdown(resultReply);
-        }
-    }
-
-    // ৩. কিছুই পাওয়া যায়নি
-    if (!studentFound && !hasResult) {
-        await ctx.replyWithMarkdown(
-            `❌ **কোন তথ্য পাওয়া যায়নি!**\n\n` +
-            `রোল: \`${roll}\`\n\n` +
-            `🔍 নিম্নলিখিত কারণে হতে পারে:\n` +
-            `• রোল নম্বরটি ভুল\n` +
-            `• শিক্ষার্থী এখনও রেজিস্টার্ড নন\n` +
-            `• সার্ভারে সমস্যা`
+        const waitingMsg = await ctx.replyWithMarkdown(
+            `⏳ **Searching...**\n🎯 Roll: \`${roll}\``
         );
+
+        const studentResult = await session.searchStudent(roll);
+        let studentInfo = null;
+        let studentFound = false;
+
+        const resultData = await session.getResult(roll);
+
+        if (studentResult && studentResult.rows && studentResult.rows.length > 0) {
+            studentInfo = studentResult.rows[0];
+            studentFound = true;
+        }
+
+        const user = getUser(userId) || { total_searches: 0 };
+        user.total_searches = (user.total_searches || 0) + 1;
+        user.joined = user.joined || new Date().toISOString();
+        updateUser(userId, user);
+
+        const hasResult = resultData && resultData.success && resultData.data && resultData.data.length > 0;
+
+        addHistory(userId, roll, studentFound || hasResult, studentInfo);
+
+        await ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id);
+
+        if (studentFound && studentInfo) {
+            const studentReply = formatStudentData(studentInfo);
+            const photoUrl = studentInfo.photoUrl;
+            const photoFileId = studentInfo.photoFileId;
+            
+            const photoSent = await sendStudentPhoto(ctx, photoUrl, photoFileId, studentReply, roll, userId);
+            
+            if (!photoSent) {
+                await ctx.replyWithMarkdown(`📝 **Information found (without photo)**\n\n${studentReply}`);
+            }
+        }
+
+        if (hasResult) {
+            const resultReply = formatResultData(resultData, roll);
+            if (resultReply) {
+                await ctx.replyWithMarkdown(resultReply);
+            }
+        }
+
+        if (!studentFound && !hasResult) {
+            await ctx.replyWithMarkdown(
+                `❌ **No information found!**\n\n` +
+                `Roll: \`${roll}\`\n\n` +
+                `🔍 Possible reasons:\n` +
+                `• Wrong roll number\n` +
+                `• Student not registered yet\n` +
+                `• Server issue`
+            );
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+        await ctx.reply('⚠️ Error processing your request. Please try again.');
     }
 });
 
@@ -836,84 +895,68 @@ bot.on('text', async (ctx) => {
 // ========================================
 
 bot.catch((err, ctx) => {
-    console.error('❌ বট এরর:', err);
-    ctx.reply('⚠️ সার্ভার এরর! কিছুক্ষণ পর আবার চেষ্টা করুন।');
+    console.error('❌ Bot error:', err);
+    ctx.reply('⚠️ Server error! Please try again later.');
 });
 
 // ========================================
 // ৮. বট স্টার্ট এবং ওয়েব সার্ভার
 // ========================================
 
-console.log('🤖 বট চালু হচ্ছে...');
-console.log('👑 অ্যাডমিন আইডি:', ADMIN_IDS);
+console.log('🤖 Bot starting...');
+console.log('👑 Admin IDs:', ADMIN_IDS);
 
-// রেন্ডারের জন্য পোর্ট লিসেন
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('🤖 বট চলছে!');
+    res.send('🤖 Bot is running!');
 });
 
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
 
-// পোর্ট লিসেন শুরু করুন
 const server = app.listen(port, () => {
-    console.log(`✅ ওয়েব সার্ভার চলছে পোর্ট ${port} এ`);
+    console.log(`✅ Web server running on port ${port}`);
 });
 
-// বট লঞ্চ করুন
 bot.launch({
     dropPendingUpdates: true
 })
 .then(() => {
-    console.log('✅ বট রেডি! টেলিগ্রামে /start দিন');
-    console.log('📋 অ্যাডমিন প্যানেল: /admin');
-    console.log(`👑 অ্যাডমিন ইউজার: ${ADMIN_IDS.join(', ')}`);
+    console.log('✅ Bot ready! Send /start on Telegram');
+    console.log('📋 Admin panel: /admin');
+    console.log(`👑 Admin users: ${ADMIN_IDS.join(', ')}`);
 })
 .catch((error) => {
-    console.error('❌ বট লঞ্চ করতে সমস্যা:', error);
+    console.error('❌ Bot launch error:', error);
     process.exit(1);
 });
 
-// গ্রেসফুল শাটডাউন
 process.once('SIGINT', () => {
-    console.log('🛑 SIGINT পেয়েছি, বন্ধ করা হচ্ছে...');
+    console.log('🛑 SIGINT received, shutting down...');
     bot.stop('SIGINT');
     server.close(() => {
-        console.log('✅ সার্ভার বন্ধ হয়েছে');
+        console.log('✅ Server closed');
         process.exit(0);
     });
 });
 
 process.once('SIGTERM', () => {
-    console.log('🛑 SIGTERM পেয়েছি, বন্ধ করা হচ্ছে...');
+    console.log('🛑 SIGTERM received, shutting down...');
     bot.stop('SIGTERM');
     server.close(() => {
-        console.log('✅ সার্ভার বন্ধ হয়েছে');
+        console.log('✅ Server closed');
         process.exit(0);
     });
 });
 
-// আনকট এক্সেপশন হ্যান্ডলার
 process.on('uncaughtException', (error) => {
     console.error('❌ Uncaught Exception:', error);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// টেস্ট কমান্ড - আপনার আইডি দেখাবে
-bot.command('myid', async (ctx) => {
-    const userId = ctx.from.id;
-    const isAdminUser = isAdmin(userId);
-    await ctx.reply(
-        `🆔 **আপনার আইডি:** \`${userId}\`\n\n` +
-        `👑 **অ্যাডমিন?** ${isAdminUser ? '✅ হ্যাঁ' : '❌ না'}\n\n` +
-        `📋 **অ্যাডমিন লিস্ট:** \`${ADMIN_IDS.join(', ')}\``
-    );
 });
