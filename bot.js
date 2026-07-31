@@ -1,4 +1,4 @@
-// bot.js - ইনলাইন কীবোর্ড, কুইক রিপ্লাই ও ফিডব্যাক সহ
+// bot.js - সম্পূর্ণ আপডেটেড (ইনলাইন কীবোর্ড, কুইক রিপ্লাই, ফিডব্যাক ও স্টুডেন্ট ইনফো ফিক্স)
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
@@ -230,32 +230,38 @@ function getUserDisplayName(user) {
     return name.trim() || 'Unknown';
 }
 
-// স্টুডেন্ট ডেটা ফরম্যাট
+// ========================================
+// ৪.এ স্টুডেন্ট ডেটা ফরম্যাট (ফিক্স করা)
+// ========================================
+
 function formatStudentData(student) {
     let reply = '🎓 Student Information\n';
     reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-    reply += `👤 Name (Bangla): ${student.nameBn || 'N/A'}\n`;
-    reply += `👤 Name (English): ${student.name || 'N/A'}\n`;
+    reply += `👤 Name (Bangla): ${student.nameBn || student.name_bn || 'N/A'}\n`;
+    reply += `👤 Name (English): ${student.name || student.name_en || 'N/A'}\n`;
     reply += `🔢 Roll: ${student.roll || 'N/A'}\n`;
-    reply += `📋 Reg: ${student.reg || 'N/A'}\n`;
-    reply += `📚 Department: ${student.dept || 'N/A'}\n`;
+    reply += `📋 Reg: ${student.reg || student.registration || 'N/A'}\n`;
+    reply += `📚 Department: ${student.department || student.dept || 'N/A'}\n`;
     reply += `🕐 Shift: ${student.shift || 'N/A'}\n`;
-    reply += `📅 Session: ${student.session || 'N/A'}\n\n`;
-    reply += `👨‍👦 Father: ${student.fatherBn || 'N/A'}\n`;
-    reply += `👩‍👦 Mother: ${student.motherBn || 'N/A'}\n\n`;
-    reply += `🩸 Blood Group: ${student.bloodGroup || 'N/A'}\n`;
-    reply += `📱 Mobile: ${student.mobile || 'N/A'}\n`;
-    reply += `📞 Guardian: ${student.guardianMobile || 'N/A'}\n\n`;
+    reply += `📅 Session: ${student.session || student.sessionYear || 'N/A'}\n\n`;
+    reply += `👨‍👦 Father: ${student.fatherBn || student.father_name || 'N/A'}\n`;
+    reply += `👩‍👦 Mother: ${student.motherBn || student.mother_name || 'N/A'}\n\n`;
+    reply += `🩸 Blood Group: ${student.bloodGroup || student.blood_group || 'N/A'}\n`;
+    reply += `📱 Mobile: ${student.mobile || student.phone || 'N/A'}\n`;
+    reply += `📞 Guardian: ${student.guardianMobile || student.guardian_phone || 'N/A'}\n\n`;
     reply += `🏠 Address:\n`;
     reply += `Village: ${student.village || 'N/A'}\n`;
-    reply += `Post: ${student.post || 'N/A'}\n`;
-    reply += `Upazila: ${student.upazila || 'N/A'}\n`;
+    reply += `Post: ${student.post || student.postOffice || 'N/A'}\n`;
+    reply += `Upazila: ${student.upazila || student.thana || 'N/A'}\n`;
     reply += `District: ${student.district || 'N/A'}\n`;
-    reply += `\n📌 Status: ${student.status || 'N/A'}`;
+    reply += `\n📌 Status: ${student.status || 'Active'}`;
     return reply;
 }
 
-// রেজাল্ট ফরম্যাট
+// ========================================
+// ৪.বি রেজাল্ট ফরম্যাট
+// ========================================
+
 function formatResultData(resultData, roll) {
     if (!resultData || !resultData.data || resultData.data.length === 0) {
         return null;
@@ -477,7 +483,7 @@ bot.start(async (ctx) => {
                 last_name: userInfo.last_name || '',
                 username: userInfo.username || '',
                 display_name: displayName,
-                saved_roll: null // ইউজারের সেভ করা রোল
+                saved_roll: null
             };
             updateUser(userId, user);
         } else {
@@ -491,7 +497,6 @@ bot.start(async (ctx) => {
         
         const isAdminUser = isAdmin(userId);
         
-        // কুইক রিপ্লাই বাটন তৈরি
         const keyboard = Markup.keyboard([
             ['🔍 New Search', '📊 My Result'],
             ['ℹ️ Help', '⭐ Feedback']
@@ -541,16 +546,34 @@ bot.hears('📊 My Result', async (ctx) => {
         const resultData = await session.getResult(roll);
         const studentResult = await session.searchStudent(roll);
         
+        let resultShown = false;
+        
+        if (studentResult && studentResult.rows && studentResult.rows.length > 0) {
+            const studentInfo = studentResult.rows[0];
+            const studentReply = formatStudentData(studentInfo);
+            const photoUrl = studentInfo.photoUrl;
+            const photoFileId = studentInfo.photoFileId;
+            
+            const photoSent = await sendStudentPhoto(ctx, photoUrl, photoFileId, studentReply, roll, userId);
+            
+            if (!photoSent) {
+                await ctx.reply(`📝 Information found (without photo)\n\n${studentReply}`);
+            }
+            resultShown = true;
+        }
+        
         if (resultData && resultData.success && resultData.data && resultData.data.length > 0) {
             const resultReply = formatResultData(resultData, roll);
             if (resultReply) {
                 await ctx.reply(resultReply);
+                resultShown = true;
             }
-        } else {
+        }
+        
+        if (!resultShown) {
             await ctx.reply(`❌ No result found for roll: ${roll}`);
         }
         
-        // কীবোর্ড রিস্টোর
         const keyboard = Markup.keyboard([
             ['🔍 New Search', '📊 My Result'],
             ['ℹ️ Help', '⭐ Feedback']
@@ -609,7 +632,6 @@ bot.command('feedback', async (ctx) => {
         
         await ctx.reply('✅ Thank you for your feedback! 🙏');
         
-        // অ্যাডমিনকে নোটিফাই
         const user = getUser(userId);
         const name = user?.display_name || 'Unknown';
         const adminMsg = `📝 New Feedback\n\n` +
@@ -723,7 +745,7 @@ bot.command('clear_feedback', adminOnly, async (ctx) => {
     }
 });
 
-// অন্যান্য অ্যাডমিন কমান্ড (পূর্বের মতো)
+// ব্রডকাস্ট
 bot.command('broadcast', adminOnly, async (ctx) => {
     try {
         const message = ctx.message.text.replace('/broadcast', '').trim();
@@ -762,6 +784,7 @@ bot.command('broadcast', adminOnly, async (ctx) => {
     }
 });
 
+// ইউজার লিস্ট
 bot.command('users', adminOnly, async (ctx) => {
     try {
         const users = getUsers();
@@ -797,6 +820,7 @@ bot.command('users', adminOnly, async (ctx) => {
     }
 });
 
+// সব পরিসংখ্যান
 bot.command('stats_all', adminOnly, async (ctx) => {
     try {
         const users = getUsers();
@@ -838,6 +862,7 @@ bot.command('stats_all', adminOnly, async (ctx) => {
     }
 });
 
+// ইউজার হিস্ট্রি
 bot.command('history', adminOnly, async (ctx) => {
     try {
         const parts = ctx.message.text.split(' ');
@@ -883,6 +908,7 @@ bot.command('history', adminOnly, async (ctx) => {
     }
 });
 
+// হিস্ট্রি ক্লিয়ার
 bot.command('clear_history', adminOnly, async (ctx) => {
     try {
         const parts = ctx.message.text.split(' ');
@@ -907,6 +933,7 @@ bot.command('clear_history', adminOnly, async (ctx) => {
     }
 });
 
+// ইউজার ডিলিট
 bot.command('delete_user', adminOnly, async (ctx) => {
     try {
         const parts = ctx.message.text.split(' ');
@@ -974,11 +1001,14 @@ bot.on('text', async (ctx) => {
 
         const waitingMsg = await ctx.reply(`⏳ Searching...\n🎯 Roll: ${roll}`);
 
-        const studentResult = await session.searchStudent(roll);
+        // সমান্তরালে ডেটা আনা
+        const [studentResult, resultData] = await Promise.all([
+            session.searchStudent(roll),
+            session.getResult(roll)
+        ]);
+
         let studentInfo = null;
         let studentFound = false;
-
-        const resultData = await session.getResult(roll);
 
         if (studentResult && studentResult.rows && studentResult.rows.length > 0) {
             studentInfo = studentResult.rows[0];
@@ -996,9 +1026,9 @@ bot.on('text', async (ctx) => {
 
         await ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id);
 
-        // রেজাল্ট দেখানোর পর সেভ রোল বাটন
         let resultShown = false;
 
+        // ১. স্টুডেন্ট ইনফরমেশন দেখান
         if (studentFound && studentInfo) {
             const studentReply = formatStudentData(studentInfo);
             const photoUrl = studentInfo.photoUrl;
@@ -1012,6 +1042,7 @@ bot.on('text', async (ctx) => {
             resultShown = true;
         }
 
+        // ২. রেজাল্ট দেখান
         if (hasResult) {
             const resultReply = formatResultData(resultData, roll);
             if (resultReply) {
@@ -1020,15 +1051,15 @@ bot.on('text', async (ctx) => {
             }
         }
 
+        // ৩. কিছুই পাওয়া যায়নি
         if (!studentFound && !hasResult) {
             await ctx.reply(
                 `❌ No information found!\n\nRoll: ${roll}\n\n🔍 Possible reasons:\n• Wrong roll number\n• Student not registered yet\n• Server issue`
             );
         }
 
-        // সেভ রোল বাটন সহ মেসেজ (যদি রেজাল্ট পাওয়া যায়)
+        // ৪. সেভ রোল বাটন (যদি রেজাল্ট পাওয়া যায়)
         if (resultShown) {
-            // ইউজারের সেভ রোল আপডেট করুন
             user.saved_roll = roll;
             updateUser(userId, user);
             
@@ -1042,6 +1073,14 @@ bot.on('text', async (ctx) => {
                 saveKeyboard
             );
         }
+
+        // ৫. কুইক রিপ্লাই কীবোর্ড দেখান
+        const keyboard = Markup.keyboard([
+            ['🔍 New Search', '📊 My Result'],
+            ['ℹ️ Help', '⭐ Feedback']
+        ]).resize().oneTime();
+        
+        await ctx.reply('🔍 What would you like to do next?', keyboard);
 
     } catch (error) {
         console.error('Search error:', error);
@@ -1155,7 +1194,31 @@ bot.command('myid', async (ctx) => {
 });
 
 // ========================================
-// ৮. এরর হ্যান্ডলার
+// ৮. টেস্ট কমান্ড (ডিবাগের জন্য)
+// ========================================
+
+bot.command('test', async (ctx) => {
+    try {
+        const testRoll = '240363';
+        await ctx.reply(`🧪 Testing with roll: ${testRoll}`);
+        
+        const result = await session.searchStudent(testRoll);
+        if (result && result.rows && result.rows.length > 0) {
+            const student = result.rows[0];
+            console.log('Test Student Data:', JSON.stringify(student, null, 2));
+            const reply = formatStudentData(student);
+            await ctx.reply(`✅ Test Result:\n\n${reply}`);
+        } else {
+            await ctx.reply('❌ No student found for test roll.');
+        }
+    } catch (error) {
+        console.error('Test error:', error);
+        await ctx.reply('⚠️ Test failed.');
+    }
+});
+
+// ========================================
+// ৯. এরর হ্যান্ডলার
 // ========================================
 
 bot.catch((err, ctx) => {
@@ -1164,7 +1227,7 @@ bot.catch((err, ctx) => {
 });
 
 // ========================================
-// ৯. বট স্টার্ট এবং ওয়েব সার্ভার
+// ১০. বট স্টার্ট এবং ওয়েব সার্ভার
 // ========================================
 
 console.log('🤖 Bot starting...');
@@ -1197,6 +1260,7 @@ bot.launch({
     console.log('   • Quick Reply Buttons');
     console.log('   • Save Roll Feature');
     console.log('   • Feedback System');
+    console.log('   • Fixed Student Info Display');
 })
 .catch((error) => {
     console.error('❌ Bot launch error:', error);
