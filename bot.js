@@ -1,4 +1,4 @@
-// bot.js - ফিক্স করা (কমান্ড কাজ করবে)
+// bot.js - ইউজারের নাম ও ইউজারনেম সংরক্ষণ এবং দেখানো
 require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
@@ -203,28 +203,41 @@ function isAdmin(userId) {
     return ADMIN_IDS.includes(String(userId));
 }
 
+// ইউজারের নাম ফরম্যাট করার ফাংশন
+function getUserDisplayName(user) {
+    if (!user) return 'Unknown';
+    let name = '';
+    if (user.first_name) name += user.first_name;
+    if (user.last_name) name += ' ' + user.last_name;
+    if (user.username) {
+        if (name.trim()) name += ` (@${user.username})`;
+        else name = `@${user.username}`;
+    }
+    return name.trim() || 'Unknown';
+}
+
 // স্টুডেন্ট ডেটা ফরম্যাট
 function formatStudentData(student) {
-    let reply = '🎓 **Student Information**\n';
+    let reply = '🎓 Student Information\n';
     reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-    reply += `👤 **Name (Bangla):** ${student.nameBn || 'N/A'}\n`;
-    reply += `👤 **Name (English):** ${student.name || 'N/A'}\n`;
-    reply += `🔢 **Roll:** ${student.roll || 'N/A'}\n`;
-    reply += `📋 **Reg:** ${student.reg || 'N/A'}\n`;
-    reply += `📚 **Department:** ${student.dept || 'N/A'}\n`;
-    reply += `🕐 **Shift:** ${student.shift || 'N/A'}\n`;
-    reply += `📅 **Session:** ${student.session || 'N/A'}\n\n`;
-    reply += `👨‍👦 **Father:** ${student.fatherBn || 'N/A'}\n`;
-    reply += `👩‍👦 **Mother:** ${student.motherBn || 'N/A'}\n\n`;
-    reply += `🩸 **Blood Group:** ${student.bloodGroup || 'N/A'}\n`;
-    reply += `📱 **Mobile:** ${student.mobile || 'N/A'}\n`;
-    reply += `📞 **Guardian:** ${student.guardianMobile || 'N/A'}\n\n`;
-    reply += `🏠 **Address:**\n`;
+    reply += `👤 Name (Bangla): ${student.nameBn || 'N/A'}\n`;
+    reply += `👤 Name (English): ${student.name || 'N/A'}\n`;
+    reply += `🔢 Roll: ${student.roll || 'N/A'}\n`;
+    reply += `📋 Reg: ${student.reg || 'N/A'}\n`;
+    reply += `📚 Department: ${student.dept || 'N/A'}\n`;
+    reply += `🕐 Shift: ${student.shift || 'N/A'}\n`;
+    reply += `📅 Session: ${student.session || 'N/A'}\n\n`;
+    reply += `👨‍👦 Father: ${student.fatherBn || 'N/A'}\n`;
+    reply += `👩‍👦 Mother: ${student.motherBn || 'N/A'}\n\n`;
+    reply += `🩸 Blood Group: ${student.bloodGroup || 'N/A'}\n`;
+    reply += `📱 Mobile: ${student.mobile || 'N/A'}\n`;
+    reply += `📞 Guardian: ${student.guardianMobile || 'N/A'}\n\n`;
+    reply += `🏠 Address:\n`;
     reply += `Village: ${student.village || 'N/A'}\n`;
     reply += `Post: ${student.post || 'N/A'}\n`;
     reply += `Upazila: ${student.upazila || 'N/A'}\n`;
     reply += `District: ${student.district || 'N/A'}\n`;
-    reply += `\n📌 **Status:** ${student.status || 'N/A'}`;
+    reply += `\n📌 Status: ${student.status || 'N/A'}`;
     return reply;
 }
 
@@ -248,15 +261,15 @@ function formatResultData(resultData, roll) {
     
     const studentData = mainData;
     
-    let reply = '📊 **Student Result**\n';
+    let reply = '📊 Student Result\n';
     reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-    reply += `🔢 **Roll:** ${studentData.roll || 'N/A'}\n`;
-    reply += `🏫 **Institute:** ${studentData.institute?.name || 'N/A'}\n`;
-    reply += `📚 **Curriculum:** ${studentData.curriculumId || 'N/A'}\n`;
-    reply += `📅 **Regulation:** ${studentData.regulation || 'N/A'}\n\n`;
+    reply += `🔢 Roll: ${studentData.roll || 'N/A'}\n`;
+    reply += `🏫 Institute: ${studentData.institute?.name || 'N/A'}\n`;
+    reply += `📚 Curriculum: ${studentData.curriculumId || 'N/A'}\n`;
+    reply += `📅 Regulation: ${studentData.regulation || 'N/A'}\n\n`;
 
     if (studentData.semesterResults && studentData.semesterResults.length > 0) {
-        reply += '📈 **Semester-wise Results:**\n';
+        reply += '📈 Semester-wise Results:\n';
         reply += '━━━━━━━━━━━━━━━━━━━━\n\n';
         
         const sortedSemesters = studentData.semesterResults
@@ -281,7 +294,7 @@ function formatResultData(resultData, roll) {
                 statusText = 'Failed';
             }
             
-            reply += `📘 **Semester ${semesterNum}:** ${statusEmoji} ${statusText}\n`;
+            reply += `📘 Semester ${semesterNum}: ${statusEmoji} ${statusText}\n`;
             
             if (semester.results && semester.results.length > 0) {
                 const result = semester.results[0];
@@ -303,7 +316,7 @@ function formatResultData(resultData, roll) {
         }
     }
 
-    reply += '📊 **Overall Status:**\n';
+    reply += '📊 Overall Status:\n';
     reply += '━━━━━━━━━━━━━━━━━━━━\n';
     
     let totalSemesters = 0;
@@ -347,7 +360,7 @@ function formatResultData(resultData, roll) {
     }
 
     if (studentData.currentFailedSubjects && studentData.currentFailedSubjects.length > 0) {
-        reply += '\n⚠️ **Currently Failed Subjects:**\n';
+        reply += '\n⚠️ Currently Failed Subjects:\n';
         reply += '━━━━━━━━━━━━━━━━━━━━\n';
         for (const sub of studentData.currentFailedSubjects) {
             if (!sub.passed) {
@@ -435,26 +448,42 @@ async function adminOnly(ctx, next) {
 }
 
 // ========================================
-// ৬.এ ইউজার কমান্ড (সিম্পল রিপ্লাই)
+// ৬.এ ইউজার কমান্ড (ইউজারের নাম সংরক্ষণ সহ)
 // ========================================
 
 bot.start(async (ctx) => {
     try {
         const userId = ctx.from.id;
+        const userInfo = ctx.from;
         console.log(`✅ /start from: ${userId}`);
         
         let user = getUser(userId);
         if (!user) {
+            // ইউজারের নাম সংরক্ষণ
+            const displayName = getUserDisplayName(userInfo);
             user = {
                 total_searches: 0,
-                joined: new Date().toISOString()
+                joined: new Date().toISOString(),
+                first_name: userInfo.first_name || '',
+                last_name: userInfo.last_name || '',
+                username: userInfo.username || '',
+                display_name: displayName
             };
+            updateUser(userId, user);
+        } else {
+            // ইউজারের নাম আপডেট করুন (যদি পরিবর্তন হয়ে থাকে)
+            const displayName = getUserDisplayName(userInfo);
+            user.first_name = userInfo.first_name || '';
+            user.last_name = userInfo.last_name || '';
+            user.username = userInfo.username || '';
+            user.display_name = displayName;
             updateUser(userId, user);
         }
         
         const isAdminUser = isAdmin(userId);
         let msg = `🎓 Student Information Bot\n`;
         msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        msg += `👋 Welcome ${user.display_name || 'User'}!\n\n`;
         msg += `🔍 Send your roll number.\n`;
         msg += `Example: 240363 or 2403631\n\n`;
         msg += `📊 Your Status:\n`;
@@ -510,7 +539,7 @@ bot.command('about', async (ctx) => {
         msg += `• 24/7 active\n`;
         msg += `• Admin panel\n\n`;
         msg += `📌 Developer: Oahid Towsif Shamol\n`;
-        msg += `📅 Version: 5.2 (Result Fix)`;
+        msg += `📅 Version: 5.3 (User Name Fix)`;
         await ctx.reply(msg);
     } catch (error) {
         console.error('About error:', error);
@@ -529,6 +558,7 @@ bot.command('stats', async (ctx) => {
         }
         let msg = `📊 Your Statistics\n`;
         msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+        msg += `👤 Name: ${user.display_name || 'Unknown'}\n`;
         msg += `📅 Joined: ${(user.joined || 'N/A').slice(0, 10)}\n`;
         msg += `🔢 Total Searches: ${user.total_searches || 0}\n\n`;
         msg += `🎯 Send roll number for new search.`;
@@ -544,7 +574,10 @@ bot.command('myid', async (ctx) => {
         const userId = ctx.from.id;
         console.log(`✅ /myid from: ${userId}`);
         const isAdminUser = isAdmin(userId);
+        const user = getUser(userId);
         let msg = `🆔 Your ID: ${userId}\n\n`;
+        msg += `👤 Name: ${user?.display_name || 'Unknown'}\n`;
+        if (user?.username) msg += `🔸 Username: @${user.username}\n`;
         msg += `👑 Admin? ${isAdminUser ? '✅ Yes' : '❌ No'}\n\n`;
         msg += `📋 Admin List: ${ADMIN_IDS.join(', ')}`;
         await ctx.reply(msg);
@@ -555,7 +588,7 @@ bot.command('myid', async (ctx) => {
 });
 
 // ========================================
-// ৬.বি অ্যাডমিন কমান্ড (সিম্পল রিপ্লাই)
+// ৬.বি অ্যাডমিন কমান্ড (ইউজারের নাম সহ)
 // ========================================
 
 bot.command('admin', adminOnly, async (ctx) => {
@@ -630,7 +663,7 @@ bot.command('broadcast', adminOnly, async (ctx) => {
     }
 });
 
-// ইউজার লিস্ট
+// ইউজার লিস্ট (নাম ও ইউজারনেম সহ)
 bot.command('users', adminOnly, async (ctx) => {
     try {
         const users = getUsers();
@@ -646,15 +679,19 @@ bot.command('users', adminOnly, async (ctx) => {
         
         for (const id of recentUsers) {
             const user = users[id];
-            const name = user.name || 'Unknown';
+            const name = user.display_name || user.first_name || 'Unknown';
+            const username = user.username ? `(@${user.username})` : '';
             const searches = user.total_searches || 0;
+            const joined = (user.joined || 'N/A').slice(0, 10);
+            
             msg += `🆔 ${id}\n`;
-            msg += `👤 ${name}\n`;
+            msg += `👤 ${name} ${username}\n`;
             msg += `🔢 ${searches} searches\n`;
-            msg += `📅 ${(user.joined || 'N/A').slice(0, 10)}\n\n`;
+            msg += `📅 ${joined}\n`;
+            msg += `━━━━━━━━━━━━━━━━━━━━\n`;
         }
 
-        msg += `📊 Total: ${userIds.length} users`;
+        msg += `\n📊 Total: ${userIds.length} users`;
         await ctx.reply(msg);
     } catch (error) {
         console.error('Users list error:', error);
@@ -700,7 +737,7 @@ bot.command('stats_all', adminOnly, async (ctx) => {
     }
 });
 
-// ইউজার হিস্ট্রি
+// ইউজার হিস্ট্রি (নাম সহ)
 bot.command('history', adminOnly, async (ctx) => {
     try {
         const parts = ctx.message.text.split(' ');
@@ -724,7 +761,9 @@ bot.command('history', adminOnly, async (ctx) => {
         msg += `━━━━━━━━━━━━━━━━━━━━\n`;
         msg += `🆔 ${targetUserId}\n`;
         if (user) {
-            msg += `👤 Name: ${user.name || 'N/A'}\n`;
+            const name = user.display_name || user.first_name || 'Unknown';
+            const username = user.username ? ` (@${user.username})` : '';
+            msg += `👤 ${name}${username}\n`;
             msg += `🔢 Total searches: ${user.total_searches || 0}\n`;
         }
         msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -802,12 +841,13 @@ bot.command('delete_user', adminOnly, async (ctx) => {
 });
 
 // ========================================
-// ৬.সি সার্চ হ্যান্ডলার
+// ৬.সি সার্চ হ্যান্ডলার (ইউজারের নাম সংরক্ষণ সহ)
 // ========================================
 
 bot.on('text', async (ctx) => {
     try {
         const userId = ctx.from.id;
+        const userInfo = ctx.from;
         const roll = ctx.message.text.trim();
 
         if (roll.startsWith('/')) return;
@@ -817,6 +857,17 @@ bot.on('text', async (ctx) => {
         if (!/^\d{6,7}$/.test(roll)) {
             await ctx.reply(`❌ Invalid Roll Number!\n\nRoll number must be 6 or 7 digits.\nExample: 240363 or 2403631`);
             return;
+        }
+
+        // ইউজারের নাম আপডেট করুন
+        let user = getUser(userId);
+        if (user) {
+            const displayName = getUserDisplayName(userInfo);
+            user.first_name = userInfo.first_name || '';
+            user.last_name = userInfo.last_name || '';
+            user.username = userInfo.username || '';
+            user.display_name = displayName;
+            updateUser(userId, user);
         }
 
         const waitingMsg = await ctx.reply(`⏳ Searching...\n🎯 Roll: ${roll}`);
@@ -832,7 +883,7 @@ bot.on('text', async (ctx) => {
             studentFound = true;
         }
 
-        const user = getUser(userId) || { total_searches: 0 };
+        user = getUser(userId) || { total_searches: 0 };
         user.total_searches = (user.total_searches || 0) + 1;
         user.joined = user.joined || new Date().toISOString();
         updateUser(userId, user);
