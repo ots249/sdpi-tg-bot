@@ -1,4 +1,4 @@
-// bot.js - সম্পূর্ণ আপডেটেড (12h Time Format + Admin Notification on New Search)
+// bot.js - টাইম ও নোটিফিকেশন ফিক্স
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
@@ -26,7 +26,7 @@ const SETTINGS_FILE = 'settings.json';
 const FEEDBACK_FILE = 'feedback.json';
 
 // ========================================
-// ২. BST টাইম ইউটিলিটি (12h Format)
+// ২. BST টাইম ইউটিলিটি (12h Format - Corrected)
 // ========================================
 
 function getBSTTime() {
@@ -490,7 +490,7 @@ async function sendStudentPhotoFromFileId(ctx, photoFileId, reply, roll, userId)
 }
 
 // ========================================
-// ৮. অ্যাডমিন নোটিফিকেশন ফাংশন
+// ৮. অ্যাডমিন নোটিফিকেশন ফাংশন (No Markdown)
 // ========================================
 
 async function sendAdminNotification(ctx, userId, roll, found, time, user) {
@@ -501,16 +501,16 @@ async function sendAdminNotification(ctx, userId, roll, found, time, user) {
     const lastName = userInfo?.last_name || '';
     const fullName = `${firstName} ${lastName}`.trim();
     
-    let msg = `🔍 **New Search Alert**\n`;
+    let msg = `🔍 New Search Alert\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    msg += `👤 **User:** ${userName}\n`;
-    msg += `🆔 **ID:** ${userId}\n`;
-    msg += `🔸 **Username:** ${userUsername}\n`;
-    msg += `📛 **Full Name:** ${fullName}\n`;
-    msg += `🎯 **Roll:** ${roll}\n`;
-    msg += `📊 **Status:** ${found ? '✅ Found' : '❌ Not Found'}\n`;
-    msg += `🕐 **Time:** ${time}\n\n`;
-    msg += `📊 **Total Searches:** ${user?.total_searches || 1}`;
+    msg += `👤 User: ${userName}\n`;
+    msg += `🆔 ID: ${userId}\n`;
+    msg += `🔸 Username: ${userUsername}\n`;
+    msg += `📛 Full Name: ${fullName}\n`;
+    msg += `🎯 Roll: ${roll}\n`;
+    msg += `📊 Status: ${found ? '✅ Found' : '❌ Not Found'}\n`;
+    msg += `🕐 Time: ${time}\n\n`;
+    msg += `📊 Total Searches: ${user?.total_searches || 1}`;
     
     for (const adminId of ADMIN_IDS) {
         try {
@@ -605,19 +605,19 @@ bot.command('help', async (ctx) => {
     try {
         console.log(`✅ /help from: ${ctx.from.id}`);
         const isAdminUser = isAdmin(ctx.from.id);
-        let msg = `📖 **How to use the bot:**\n\n`;
+        let msg = `📖 How to use the bot:\n\n`;
         msg += `1️⃣ Send a roll number or click "🔍 New Search"\n`;
         msg += `2️⃣ Bot will show student info & result\n`;
         msg += `3️⃣ Use "📊 My Result" to see saved result\n`;
         msg += `4️⃣ Give feedback with "⭐ Feedback"\n\n`;
-        msg += `⚡ **Commands:**\n`;
+        msg += `⚡ Commands:\n`;
         msg += `• /start - Restart bot\n`;
         msg += `• /help - Show this help\n`;
         msg += `• /stats - Your statistics\n`;
         msg += `• /myid - Your Telegram ID\n`;
         msg += `• /about - About the bot`;
         if (isAdminUser) {
-            msg += `\n\n👑 **Admin Commands:**\n`;
+            msg += `\n\n👑 Admin Commands:\n`;
             msg += `• /admin - Admin Panel`;
         }
         await ctx.reply(msg);
@@ -637,7 +637,7 @@ bot.command('stats', async (ctx) => {
             await ctx.reply('❌ Profile not found. Use /start.');
             return;
         }
-        let msg = `📊 **Your Statistics**\n`;
+        let msg = `📊 Your Statistics\n`;
         msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
         msg += `👤 Name: ${user.display_name || 'Unknown'}\n`;
         if (user.username) msg += `🔸 Username: @${user.username}\n`;
@@ -659,7 +659,7 @@ bot.command('myid', async (ctx) => {
         console.log(`✅ /myid from: ${userId}`);
         const isAdminUser = isAdmin(userId);
         const user = getUser(userId);
-        let msg = `🆔 **Your ID:** ${userId}\n\n`;
+        let msg = `🆔 Your ID: ${userId}\n\n`;
         msg += `👤 Name: ${user?.display_name || 'Unknown'}\n`;
         if (user?.username) msg += `🔸 Username: @${user.username}\n`;
         if (user?.saved_roll) msg += `💾 Saved Roll: ${user.saved_roll}\n`;
@@ -675,10 +675,10 @@ bot.command('myid', async (ctx) => {
 bot.command('about', async (ctx) => {
     try {
         console.log(`✅ /about from: ${ctx.from.id}`);
-        let msg = `🤖 **About Bot:**\n\n`;
+        let msg = `🤖 About Bot:\n\n`;
         msg += `Dhaka Polytechnic Institute\n`;
         msg += `Student Information Search Bot.\n\n`;
-        msg += `⚡ **Features:**\n`;
+        msg += `⚡ Features:\n`;
         msg += `• Quick search by roll\n`;
         msg += `• Information with photo\n`;
         msg += `• Result check\n`;
@@ -686,9 +686,9 @@ bot.command('about', async (ctx) => {
         msg += `• Feedback system\n`;
         msg += `• Completely free\n`;
         msg += `• 24/7 active\n\n`;
-        msg += `📌 **Developer:** Oahid Towsif Shamol\n`;
-        msg += `📅 **Version:** 6.2 (12h Time Format)\n`;
-        msg += `🕐 **Time Zone:** BST (UTC+06:00) 12h Format`;
+        msg += `📌 Developer: Oahid Towsif Shamol\n`;
+        msg += `📅 Version: 6.3 (Time Fixed)\n`;
+        msg += `🕐 Time Zone: BST (UTC+06:00) 12h Format`;
         await ctx.reply(msg);
     } catch (error) {
         console.error('About error:', error);
@@ -713,14 +713,14 @@ bot.command('admin', adminOnly, async (ctx) => {
         });
         const totalFeedbacks = Object.values(feedbacks).reduce((sum, f) => sum + f.length, 0);
 
-        let msg = `👑 **Admin Panel**\n`;
+        let msg = `👑 Admin Panel\n`;
         msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-        msg += `📊 **Statistics:**\n`;
+        msg += `📊 Statistics:\n`;
         msg += `• Total Users: ${totalUsers}\n`;
         msg += `• Total Searches: ${totalSearches}\n`;
         msg += `• Active Users: ${Object.keys(history).length}\n`;
         msg += `• Total Feedbacks: ${totalFeedbacks}\n\n`;
-        msg += `⚡ **Commands:**\n`;
+        msg += `⚡ Commands:\n`;
         msg += `• /broadcast - Broadcast message\n`;
         msg += `• /users - User list\n`;
         msg += `• /stats_all - All statistics\n`;
@@ -755,7 +755,7 @@ bot.command('broadcast', adminOnly, async (ctx) => {
         for (const userId of userIds) {
             try {
                 await ctx.telegram.sendMessage(userId, 
-                    `📢 **Admin Message:**\n\n${message}`
+                    `📢 Admin Message:\n\n${message}`
                 );
                 sent++;
             } catch (error) {
@@ -768,7 +768,7 @@ bot.command('broadcast', adminOnly, async (ctx) => {
             ctx.chat.id,
             statusMsg.message_id,
             null,
-            `✅ **Broadcast Complete!**\n\n📤 Success: ${sent}\n❌ Failed: ${failed}\n👥 Total: ${userIds.length}`
+            `✅ Broadcast Complete!\n\n📤 Success: ${sent}\n❌ Failed: ${failed}\n👥 Total: ${userIds.length}`
         );
     } catch (error) {
         console.error('Broadcast error:', error);
@@ -787,7 +787,7 @@ bot.command('users', adminOnly, async (ctx) => {
             return;
         }
 
-        let msg = `👥 **User List**\n━━━━━━━━━━━━━━━━━━━━\n\n`;
+        let msg = `👥 User List\n━━━━━━━━━━━━━━━━━━━━\n\n`;
         const recentUsers = userIds.slice(-20);
         
         for (const id of recentUsers) {
@@ -837,17 +837,17 @@ bot.command('stats_all', adminOnly, async (ctx) => {
         
         const totalFeedbacks = Object.values(feedbacks).reduce((sum, f) => sum + f.length, 0);
 
-        let msg = `📊 **Complete Statistics**\n`;
+        let msg = `📊 Complete Statistics\n`;
         msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-        msg += `👥 **Users:**\n`;
+        msg += `👥 Users:\n`;
         msg += `• Total: ${totalUsers}\n`;
         msg += `• Active last 7 days: ${activeUsers}\n\n`;
-        msg += `🔍 **Searches:**\n`;
+        msg += `🔍 Searches:\n`;
         msg += `• Total: ${totalSearches}\n`;
         msg += `• Avg/User: ${totalUsers > 0 ? (totalSearches/totalUsers).toFixed(1) : 0}\n\n`;
-        msg += `📈 **Activity:**\n`;
+        msg += `📈 Activity:\n`;
         msg += `• Total history: ${Object.values(history).reduce((sum, h) => sum + h.length, 0)}\n`;
-        msg += `📝 **Feedbacks:** ${totalFeedbacks}`;
+        msg += `📝 Feedbacks: ${totalFeedbacks}`;
         
         await ctx.reply(msg);
     } catch (error) {
@@ -876,7 +876,7 @@ bot.command('history', adminOnly, async (ctx) => {
         }
 
         const user = getUser(targetUserId);
-        let msg = `📜 **User History**\n`;
+        let msg = `📜 User History\n`;
         msg += `━━━━━━━━━━━━━━━━━━━━\n`;
         msg += `🆔 ${targetUserId}\n`;
         if (user) {
@@ -971,7 +971,7 @@ bot.command('feedback_list', adminOnly, async (ctx) => {
             return;
         }
         
-        let msg = `📝 **Feedback List**\n`;
+        let msg = `📝 Feedback List\n`;
         msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
         
         let total = 0;
@@ -1085,19 +1085,19 @@ bot.hears('📊 My Result', async (ctx) => {
 
 bot.hears('ℹ️ Help', async (ctx) => {
     const isAdminUser = isAdmin(ctx.from.id);
-    let msg = `📖 **How to use:**\n\n`;
+    let msg = `📖 How to use:\n\n`;
     msg += `1️⃣ Send a roll number or click "🔍 New Search"\n`;
     msg += `2️⃣ Bot will show student info & result\n`;
     msg += `3️⃣ Use "📊 My Result" to see saved result\n`;
     msg += `4️⃣ Give feedback with "⭐ Feedback"\n\n`;
-    msg += `⚡ **Commands:**\n`;
+    msg += `⚡ Commands:\n`;
     msg += `• /start - Restart bot\n`;
     msg += `• /help - Show this help\n`;
     msg += `• /stats - Your statistics\n`;
     msg += `• /myid - Your Telegram ID\n`;
     msg += `• /about - About the bot`;
     if (isAdminUser) {
-        msg += `\n\n👑 **Admin Commands:**\n`;
+        msg += `\n\n👑 Admin Commands:\n`;
         msg += `• /admin - Admin Panel`;
     }
     await ctx.reply(msg);
@@ -1105,9 +1105,9 @@ bot.hears('ℹ️ Help', async (ctx) => {
 
 bot.hears('⭐ Feedback', async (ctx) => {
     await ctx.reply(
-        '📝 **Send your feedback:**\n\n' +
-        'Type: `/feedback Your feedback here`\n\n' +
-        'Example: `/feedback Bot is very helpful!`'
+        '📝 Send your feedback:\n\n' +
+        'Type: /feedback Your feedback here\n\n' +
+        'Example: /feedback Bot is very helpful!'
     );
 });
 
@@ -1124,7 +1124,7 @@ bot.command('feedback', async (ctx) => {
         if (!feedbackText) {
             await ctx.reply(
                 '❌ Please write your feedback.\n\n' +
-                'Example: `/feedback Bot is great!`'
+                'Example: /feedback Bot is great!'
             );
             return;
         }
@@ -1136,7 +1136,7 @@ bot.command('feedback', async (ctx) => {
         
         const user = getUser(userId);
         const name = user?.display_name || 'Unknown';
-        const adminMsg = `📝 **New Feedback**\n\n` +
+        const adminMsg = `📝 New Feedback\n\n` +
             `👤 User: ${name}\n` +
             `🆔 ID: ${userId}\n` +
             `📝 Feedback: ${feedbackText}\n` +
@@ -1336,7 +1336,7 @@ bot.command('test', async (ctx) => {
             const student = result.rows[0];
             console.log('Test Student Data:', JSON.stringify(student, null, 2));
             const reply = formatStudentData(student);
-            await ctx.reply(`✅ **Test Result:**\n\n${reply}`);
+            await ctx.reply(`✅ Test Result:\n\n${reply}`);
         } else {
             await ctx.reply('❌ No student found for test roll.');
         }
@@ -1347,13 +1347,13 @@ bot.command('test', async (ctx) => {
 });
 
 // ========================================
-// ১৭. টাইম কমান্ড (শুধু সময় দেখানোর জন্য)
+// ১৭. টাইম কমান্ড
 // ========================================
 
 bot.command('time', async (ctx) => {
     try {
         const currentTime = formatBSTDate12h();
-        await ctx.reply(`🕐 **Current BST Time:**\n${currentTime}\n\n📅 Time Zone: BST (UTC+06:00)\n⏰ Format: 12-hour`);
+        await ctx.reply(`🕐 Current BST Time:\n${currentTime}\n\n📅 Time Zone: BST (UTC+06:00)\n⏰ Format: 12-hour`);
     } catch (error) {
         console.error('Time command error:', error);
         await ctx.reply('⚠️ Error getting time.');
@@ -1408,9 +1408,9 @@ bot.launch({
     console.log('✅ Bot ready! Send /start on Telegram');
     console.log('📋 Admin panel: /admin');
     console.log(`👑 Admin users: ${ADMIN_IDS.join(', ')}`);
-    console.log('✨ New Features:');
+    console.log('✨ Features:');
     console.log('   • BST Timezone (UTC+6) - 12h Format');
-    console.log('   • Admin Notification on every search');
+    console.log('   • Admin Notification on every search (No Markdown)');
     console.log('   • Fixed duplicate username');
     console.log('   • All commands working');
     console.log('   • Quick Reply Buttons');
