@@ -1,4 +1,4 @@
-// bot.js - টাইম ও নোটিফিকেশন ফিক্স
+// bot.js - 24h Time Format (Corrected)
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
@@ -26,7 +26,7 @@ const SETTINGS_FILE = 'settings.json';
 const FEEDBACK_FILE = 'feedback.json';
 
 // ========================================
-// ২. BST টাইম ইউটিলিটি (12h Format - Corrected)
+// ২. BST টাইম ইউটিলিটি (24h Format)
 // ========================================
 
 function getBSTTime() {
@@ -37,7 +37,7 @@ function getBSTTime() {
     return bstTime;
 }
 
-function formatBSTDate12h(date) {
+function formatBSTDate24h(date) {
     const bstDate = date || getBSTTime();
     const options = {
         year: 'numeric',
@@ -46,13 +46,13 @@ function formatBSTDate12h(date) {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        hour12: true,
+        hour12: false,
         timeZone: 'Asia/Dhaka'
     };
     return bstDate.toLocaleString('en-US', options);
 }
 
-function formatBSTDate12hShort(date) {
+function formatBSTDate24hShort(date) {
     const bstDate = date || getBSTTime();
     const options = {
         year: 'numeric',
@@ -60,7 +60,7 @@ function formatBSTDate12hShort(date) {
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true,
+        hour12: false,
         timeZone: 'Asia/Dhaka'
     };
     return bstDate.toLocaleString('en-US', options);
@@ -70,8 +70,8 @@ function getBSTTimestamp() {
     return getBSTTime().toISOString();
 }
 
-function getBSTTime12h() {
-    return formatBSTDate12h();
+function getBSTTime24h() {
+    return formatBSTDate24h();
 }
 
 // ========================================
@@ -490,7 +490,7 @@ async function sendStudentPhotoFromFileId(ctx, photoFileId, reply, roll, userId)
 }
 
 // ========================================
-// ৮. অ্যাডমিন নোটিফিকেশন ফাংশন (No Markdown)
+// ৮. অ্যাডমিন নোটিফিকেশন ফাংশন (No Markdown, 24h)
 // ========================================
 
 async function sendAdminNotification(ctx, userId, roll, found, time, user) {
@@ -591,7 +591,7 @@ bot.command('start', async (ctx) => {
         msg += `• Total Searches: ${user.total_searches || 0}\n`;
         if (isAdminUser) msg += `• 👑 Admin\n`;
         if (user.saved_roll) msg += `• 💾 Saved Roll: ${user.saved_roll}\n`;
-        msg += `• 📅 Joined: ${formatBSTDate12h(new Date(user.joined))}`;
+        msg += `• 📅 Joined: ${formatBSTDate24h(new Date(user.joined))}`;
         
         await ctx.reply(msg, keyboard);
     } catch (error) {
@@ -641,7 +641,7 @@ bot.command('stats', async (ctx) => {
         msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
         msg += `👤 Name: ${user.display_name || 'Unknown'}\n`;
         if (user.username) msg += `🔸 Username: @${user.username}\n`;
-        msg += `📅 Joined: ${formatBSTDate12h(new Date(user.joined))}\n`;
+        msg += `📅 Joined: ${formatBSTDate24h(new Date(user.joined))}\n`;
         msg += `🔢 Total Searches: ${user.total_searches || 0}\n`;
         if (user.saved_roll) msg += `💾 Saved Roll: ${user.saved_roll}\n\n`;
         msg += `🎯 Send roll number for new search.`;
@@ -687,8 +687,8 @@ bot.command('about', async (ctx) => {
         msg += `• Completely free\n`;
         msg += `• 24/7 active\n\n`;
         msg += `📌 Developer: Oahid Towsif Shamol\n`;
-        msg += `📅 Version: 6.3 (Time Fixed)\n`;
-        msg += `🕐 Time Zone: BST (UTC+06:00) 12h Format`;
+        msg += `📅 Version: 6.4 (24h Time Format)\n`;
+        msg += `🕐 Time Zone: BST (UTC+06:00) 24h Format`;
         await ctx.reply(msg);
     } catch (error) {
         console.error('About error:', error);
@@ -795,7 +795,7 @@ bot.command('users', adminOnly, async (ctx) => {
             const name = user.display_name || user.first_name || 'Unknown';
             const username = user.username ? `@${user.username}` : '';
             const searches = user.total_searches || 0;
-            const joined = user.joined ? formatBSTDate12hShort(new Date(user.joined)) : 'N/A';
+            const joined = user.joined ? formatBSTDate24hShort(new Date(user.joined)) : 'N/A';
             
             msg += `🆔 ${id}\n`;
             msg += `👤 ${name}`;
@@ -889,7 +889,7 @@ bot.command('history', adminOnly, async (ctx) => {
 
         const recent = userHistory.slice(-10).reverse();
         for (const entry of recent) {
-            const time = entry.timestamp ? formatBSTDate12hShort(new Date(entry.timestamp)) : 'N/A';
+            const time = entry.timestamp ? formatBSTDate24hShort(new Date(entry.timestamp)) : 'N/A';
             msg += `🎯 Roll: ${entry.roll}\n`;
             msg += `📅 ${time}\n`;
             msg += `${entry.result === 'found' ? '✅ Found' : '❌ Not found'}\n\n`;
@@ -985,7 +985,7 @@ bot.command('feedback_list', adminOnly, async (ctx) => {
             
             const recent = userFeedbacks.slice(-3);
             for (const fb of recent) {
-                const time = fb.timestamp ? formatBSTDate12hShort(new Date(fb.timestamp)) : 'N/A';
+                const time = fb.timestamp ? formatBSTDate24hShort(new Date(fb.timestamp)) : 'N/A';
                 msg += `   📝 ${fb.feedback}\n`;
                 msg += `   📅 ${time}\n`;
             }
@@ -1140,7 +1140,7 @@ bot.command('feedback', async (ctx) => {
             `👤 User: ${name}\n` +
             `🆔 ID: ${userId}\n` +
             `📝 Feedback: ${feedbackText}\n` +
-            `📅 Time: ${formatBSTDate12h()}`;
+            `📅 Time: ${formatBSTDate24h()}`;
         
         for (const adminId of ADMIN_IDS) {
             try {
@@ -1270,7 +1270,7 @@ bot.on('text', async (ctx) => {
         }
 
         // ৫. অ্যাডমিন নোটিফিকেশন পাঠান (প্রতিটি সার্চের জন্য)
-        const currentTime = formatBSTDate12h();
+        const currentTime = formatBSTDate24h();
         const userData = getUser(userId);
         await sendAdminNotification(ctx, userId, roll, studentFound || hasResult, currentTime, userData);
 
@@ -1352,8 +1352,8 @@ bot.command('test', async (ctx) => {
 
 bot.command('time', async (ctx) => {
     try {
-        const currentTime = formatBSTDate12h();
-        await ctx.reply(`🕐 Current BST Time:\n${currentTime}\n\n📅 Time Zone: BST (UTC+06:00)\n⏰ Format: 12-hour`);
+        const currentTime = formatBSTDate24h();
+        await ctx.reply(`🕐 Current BST Time:\n${currentTime}\n\n📅 Time Zone: BST (UTC+06:00)\n⏰ Format: 24-hour`);
     } catch (error) {
         console.error('Time command error:', error);
         await ctx.reply('⚠️ Error getting time.');
@@ -1375,14 +1375,14 @@ bot.catch((err, ctx) => {
 
 console.log('🤖 Bot starting...');
 console.log('👑 Admin IDs:', ADMIN_IDS);
-console.log('🕐 Time Zone: BST (UTC+06:00) 12h Format');
+console.log('🕐 Time Zone: BST (UTC+06:00) 24h Format');
 
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('🤖 Bot is running! (BST Timezone - 12h Format)');
+    res.send('🤖 Bot is running! (BST Timezone - 24h Format)');
 });
 
 app.get('/health', (req, res) => {
@@ -1391,7 +1391,7 @@ app.get('/health', (req, res) => {
 
 app.get('/time', (req, res) => {
     res.json({
-        bst_12h: formatBSTDate12h(),
+        bst_24h: formatBSTDate24h(),
         bst_iso: getBSTTimestamp(),
         utc: new Date().toISOString()
     });
@@ -1409,8 +1409,8 @@ bot.launch({
     console.log('📋 Admin panel: /admin');
     console.log(`👑 Admin users: ${ADMIN_IDS.join(', ')}`);
     console.log('✨ Features:');
-    console.log('   • BST Timezone (UTC+6) - 12h Format');
-    console.log('   • Admin Notification on every search (No Markdown)');
+    console.log('   • BST Timezone (UTC+6) - 24h Format');
+    console.log('   • Admin Notification on every search');
     console.log('   • Fixed duplicate username');
     console.log('   • All commands working');
     console.log('   • Quick Reply Buttons');
