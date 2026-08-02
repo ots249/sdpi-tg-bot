@@ -1,4 +1,4 @@
-// bot.js - 24h Time Format (Corrected)
+// bot.js - Asia/Dhaka Timezone (Direct)
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
@@ -26,48 +26,85 @@ const SETTINGS_FILE = 'settings.json';
 const FEEDBACK_FILE = 'feedback.json';
 
 // ========================================
-// ২. BST টাইম ইউটিলিটি (24h Format)
+// ২. BST টাইম ইউটিলিটি (Direct Asia/Dhaka)
 // ========================================
 
 function getBSTTime() {
+    // সরাসরি Asia/Dhaka timezone ব্যবহার
     const now = new Date();
-    // BST = UTC+6
-    const bstOffset = 6 * 60 * 60 * 1000;
-    const bstTime = new Date(now.getTime() + bstOffset);
-    return bstTime;
+    const options = {
+        timeZone: 'Asia/Dhaka',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatter.formatToParts(now);
+    
+    const dateObj = {};
+    parts.forEach(part => {
+        dateObj[part.type] = part.value;
+    });
+    
+    // ISO format এ রিটার্ন
+    const isoString = `${dateObj.year}-${dateObj.month}-${dateObj.day}T${dateObj.hour}:${dateObj.minute}:${dateObj.second}.000+06:00`;
+    return new Date(isoString);
 }
 
 function formatBSTDate24h(date) {
-    const bstDate = date || getBSTTime();
+    const d = date || new Date();
     const options = {
+        timeZone: 'Asia/Dhaka',
         year: 'numeric',
         month: 'short',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Dhaka'
+        hour12: false
     };
-    return bstDate.toLocaleString('en-US', options);
+    return d.toLocaleString('en-US', options);
 }
 
 function formatBSTDate24hShort(date) {
-    const bstDate = date || getBSTTime();
+    const d = date || new Date();
     const options = {
+        timeZone: 'Asia/Dhaka',
         year: 'numeric',
         month: 'short',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Dhaka'
+        hour12: false
     };
-    return bstDate.toLocaleString('en-US', options);
+    return d.toLocaleString('en-US', options);
 }
 
 function getBSTTimestamp() {
-    return getBSTTime().toISOString();
+    const now = new Date();
+    const options = {
+        timeZone: 'Asia/Dhaka',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatter.formatToParts(now);
+    
+    const dateObj = {};
+    parts.forEach(part => {
+        dateObj[part.type] = part.value;
+    });
+    
+    return `${dateObj.year}-${dateObj.month}-${dateObj.day}T${dateObj.hour}:${dateObj.minute}:${dateObj.second}.000+06:00`;
 }
 
 function getBSTTime24h() {
@@ -490,7 +527,7 @@ async function sendStudentPhotoFromFileId(ctx, photoFileId, reply, roll, userId)
 }
 
 // ========================================
-// ৮. অ্যাডমিন নোটিফিকেশন ফাংশন (No Markdown, 24h)
+// ৮. অ্যাডমিন নোটিফিকেশন ফাংশন
 // ========================================
 
 async function sendAdminNotification(ctx, userId, roll, found, time, user) {
@@ -687,8 +724,8 @@ bot.command('about', async (ctx) => {
         msg += `• Completely free\n`;
         msg += `• 24/7 active\n\n`;
         msg += `📌 Developer: Oahid Towsif Shamol\n`;
-        msg += `📅 Version: 6.4 (24h Time Format)\n`;
-        msg += `🕐 Time Zone: BST (UTC+06:00) 24h Format`;
+        msg += `📅 Version: 6.5 (Asia/Dhaka Timezone)\n`;
+        msg += `🕐 Time Zone: Asia/Dhaka (UTC+06:00) 24h Format`;
         await ctx.reply(msg);
     } catch (error) {
         console.error('About error:', error);
@@ -1157,7 +1194,7 @@ bot.command('feedback', async (ctx) => {
 });
 
 // ========================================
-// ১৪. সার্চ হ্যান্ডলার (Admin Notification সহ)
+// ১৪. সার্চ হ্যান্ডলার
 // ========================================
 
 bot.on('text', async (ctx) => {
@@ -1269,7 +1306,7 @@ bot.on('text', async (ctx) => {
             );
         }
 
-        // ৫. অ্যাডমিন নোটিফিকেশন পাঠান (প্রতিটি সার্চের জন্য)
+        // ৫. অ্যাডমিন নোটিফিকেশন পাঠান
         const currentTime = formatBSTDate24h();
         const userData = getUser(userId);
         await sendAdminNotification(ctx, userId, roll, studentFound || hasResult, currentTime, userData);
@@ -1353,7 +1390,7 @@ bot.command('test', async (ctx) => {
 bot.command('time', async (ctx) => {
     try {
         const currentTime = formatBSTDate24h();
-        await ctx.reply(`🕐 Current BST Time:\n${currentTime}\n\n📅 Time Zone: BST (UTC+06:00)\n⏰ Format: 24-hour`);
+        await ctx.reply(`🕐 Current BST Time:\n${currentTime}\n\n📅 Time Zone: Asia/Dhaka (UTC+06:00)\n⏰ Format: 24-hour`);
     } catch (error) {
         console.error('Time command error:', error);
         await ctx.reply('⚠️ Error getting time.');
@@ -1375,14 +1412,14 @@ bot.catch((err, ctx) => {
 
 console.log('🤖 Bot starting...');
 console.log('👑 Admin IDs:', ADMIN_IDS);
-console.log('🕐 Time Zone: BST (UTC+06:00) 24h Format');
+console.log('🕐 Time Zone: Asia/Dhaka (UTC+06:00) 24h Format');
 
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('🤖 Bot is running! (BST Timezone - 24h Format)');
+    res.send('🤖 Bot is running! (Asia/Dhaka Timezone - 24h Format)');
 });
 
 app.get('/health', (req, res) => {
@@ -1409,7 +1446,7 @@ bot.launch({
     console.log('📋 Admin panel: /admin');
     console.log(`👑 Admin users: ${ADMIN_IDS.join(', ')}`);
     console.log('✨ Features:');
-    console.log('   • BST Timezone (UTC+6) - 24h Format');
+    console.log('   • Asia/Dhaka Timezone (UTC+6) - 24h Format');
     console.log('   • Admin Notification on every search');
     console.log('   • Fixed duplicate username');
     console.log('   • All commands working');
