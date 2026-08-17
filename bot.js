@@ -578,7 +578,8 @@ function formatBTEBResult(btebData) {
     reply += `🔢 Roll: ${student.studentRoll || 'N/A'}\n`;
     reply += `📋 Reg: ${student.regNo || 'N/A'}\n`;
     reply += `📚 Technology: ${student.technology?.name || 'N/A'}\n`;
-    reply += `📅 Session: ${student.studySession || 'N/A'}\n\n`;
+    reply += `📅 Session: ${student.studySession || 'N/A'}\n`;
+    reply += `📅 Exam Year: ${semesters[0]?.meta?.examYear || 'N/A'}\n\n`;
 
     // Semester-wise Results
     if (semesters.length > 0) {
@@ -798,7 +799,9 @@ bot.command('start', async (ctx) => {
                 username: userInfo.username || '',
                 display_name: getUserDisplayName(userInfo),
                 saved_roll: null,
-                saved_reg: null
+                saved_reg: null,
+                saved_semester: '1',
+                saved_year: '2024'
             };
             updateUser(userId, user);
         } else {
@@ -806,6 +809,8 @@ bot.command('start', async (ctx) => {
             user.last_name = userInfo.last_name || '';
             user.username = userInfo.username || '';
             user.display_name = getUserDisplayName(userInfo);
+            if (!user.saved_semester) user.saved_semester = '1';
+            if (!user.saved_year) user.saved_year = '2024';
             updateUser(userId, user);
         }
         
@@ -813,8 +818,8 @@ bot.command('start', async (ctx) => {
         
         const keyboard = Markup.keyboard([
             ['🔍 New Search', '📊 My Result'],
-            ['📘 BTEB Result', 'ℹ️ Help'],
-            ['⭐ Feedback']
+            ['📘 BTEB Result', '⚙️ Settings'],
+            ['ℹ️ Help', '⭐ Feedback']
         ]).resize().oneTime();
         
         let msg = `🎓 Welcome ${user.display_name || 'User'}!\n`;
@@ -827,6 +832,8 @@ bot.command('start', async (ctx) => {
         if (user.saved_roll) {
             msg += `• 💾 Saved Roll: ${user.saved_roll}\n`;
             msg += `• 📋 Saved Reg: ${user.saved_reg || 'N/A'}\n`;
+            msg += `• 📘 Semester: ${user.saved_semester || '1'}\n`;
+            msg += `• 📅 Year: ${user.saved_year || '2024'}\n`;
         }
         msg += `• 📅 Joined: ${formatBSTDate24h(new Date(user.joined))}`;
         
@@ -847,14 +854,17 @@ bot.command('help', async (ctx) => {
         msg += `2️⃣ Bot will show student info & result\n`;
         msg += `3️⃣ Use "📊 My Result" to see saved result\n`;
         msg += `4️⃣ Use "📘 BTEB Result" for detailed result with subjects & grades\n`;
-        msg += `5️⃣ Give feedback with "⭐ Feedback"\n\n`;
+        msg += `5️⃣ Use "⚙️ Settings" to change semester & year\n`;
+        msg += `6️⃣ Give feedback with "⭐ Feedback"\n\n`;
         msg += `⚡ Commands:\n`;
         msg += `• /start - Restart bot\n`;
         msg += `• /help - Show this help\n`;
         msg += `• /stats - Your statistics\n`;
         msg += `• /myid - Your Telegram ID\n`;
         msg += `• /about - About the bot\n`;
-        msg += `• /setroll - Set your roll number\n`;
+        msg += `• /setroll - Set your roll and registration\n`;
+        msg += `• /setsemester - Set semester (1-8)\n`;
+        msg += `• /setyear - Set exam year\n`;
         msg += `• /bteb - Get detailed BTEB result\n`;
         msg += `• /bteb_manual - Manual BTEB result entry`;
         if (isAdminUser) {
@@ -887,6 +897,8 @@ bot.command('stats', async (ctx) => {
         if (user.saved_roll) {
             msg += `💾 Saved Roll: ${user.saved_roll}\n`;
             msg += `📋 Saved Reg: ${user.saved_reg || 'N/A'}\n`;
+            msg += `📘 Semester: ${user.saved_semester || '1'}\n`;
+            msg += `📅 Year: ${user.saved_year || '2024'}\n`;
         }
         msg += `\n🎯 Send roll number for new search.`;
         await ctx.reply(msg);
@@ -930,12 +942,13 @@ bot.command('about', async (ctx) => {
         msg += `• Information with photo\n`;
         msg += `• Result check\n`;
         msg += `• Detailed BTEB result with subjects & grades\n`;
+        msg += `• Semester & Year selection\n`;
         msg += `• Save favorite roll\n`;
         msg += `• Feedback system\n`;
         msg += `• Completely free\n`;
         msg += `• 24/7 active\n\n`;
         msg += `📌 Developer: Oahid Towsif Shamol\n`;
-        msg += `📅 Version: 7.1 (Asia/Dhaka Timezone)\n`;
+        msg += `📅 Version: 7.2 (Asia/Dhaka Timezone)\n`;
         msg += `🕐 Time Zone: Asia/Dhaka (UTC+06:00) 24h Format`;
         await ctx.reply(msg);
     } catch (error) {
@@ -945,7 +958,7 @@ bot.command('about', async (ctx) => {
 });
 
 // ========================================
-// ১১. Set Roll Command - NEW
+// ১১. Set Roll Command
 // ========================================
 
 bot.command('setroll', async (ctx) => {
@@ -953,7 +966,7 @@ bot.command('setroll', async (ctx) => {
         const userId = ctx.from.id;
         const args = ctx.message.text.split(' ');
         
-        args.shift(); // Remove command
+        args.shift();
         
         if (args.length < 2) {
             await ctx.reply(
@@ -988,7 +1001,9 @@ bot.command('setroll', async (ctx) => {
                 username: ctx.from.username || '',
                 display_name: getUserDisplayName(ctx.from),
                 saved_roll: null,
-                saved_reg: null
+                saved_reg: null,
+                saved_semester: '1',
+                saved_year: '2024'
             };
         }
         
@@ -1010,7 +1025,178 @@ bot.command('setroll', async (ctx) => {
 });
 
 // ========================================
-// ১২. অ্যাডমিন কমান্ড
+// ১২. Set Semester Command - NEW
+// ========================================
+
+bot.command('setsemester', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        const args = ctx.message.text.split(' ');
+        
+        args.shift();
+        
+        if (args.length < 1) {
+            await ctx.reply(
+                '📘 Set your semester\n\n' +
+                'Usage: /setsemester <semester>\n\n' +
+                'Example: /setsemester 1\n' +
+                '/setsemester 3\n\n' +
+                'Semester range: 1 to 8'
+            );
+            return;
+        }
+        
+        const semester = args[0];
+        
+        if (!/^[1-8]$/.test(semester)) {
+            await ctx.reply('❌ Invalid semester! Must be between 1 and 8.');
+            return;
+        }
+        
+        let user = getUser(userId);
+        if (!user) {
+            user = {
+                total_searches: 0,
+                joined: getBSTTimestamp(),
+                first_name: ctx.from.first_name || '',
+                last_name: ctx.from.last_name || '',
+                username: ctx.from.username || '',
+                display_name: getUserDisplayName(ctx.from),
+                saved_roll: null,
+                saved_reg: null,
+                saved_semester: '1',
+                saved_year: '2024'
+            };
+        }
+        
+        user.saved_semester = semester;
+        updateUser(userId, user);
+        
+        await ctx.reply(`✅ Semester set to: ${semester}`);
+        
+    } catch (error) {
+        console.error('Setsemester error:', error);
+        await ctx.reply('⚠️ Error setting semester. Please try again.');
+    }
+});
+
+// ========================================
+// ১৩. Set Year Command - NEW
+// ========================================
+
+bot.command('setyear', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        const args = ctx.message.text.split(' ');
+        
+        args.shift();
+        
+        if (args.length < 1) {
+            await ctx.reply(
+                '📅 Set your exam year\n\n' +
+                'Usage: /setyear <year>\n\n' +
+                'Example: /setyear 2024\n' +
+                '/setyear 2023'
+            );
+            return;
+        }
+        
+        const year = args[0];
+        
+        if (!/^\d{4}$/.test(year)) {
+            await ctx.reply('❌ Invalid year! Must be 4 digits (e.g., 2024)');
+            return;
+        }
+        
+        let user = getUser(userId);
+        if (!user) {
+            user = {
+                total_searches: 0,
+                joined: getBSTTimestamp(),
+                first_name: ctx.from.first_name || '',
+                last_name: ctx.from.last_name || '',
+                username: ctx.from.username || '',
+                display_name: getUserDisplayName(ctx.from),
+                saved_roll: null,
+                saved_reg: null,
+                saved_semester: '1',
+                saved_year: '2024'
+            };
+        }
+        
+        user.saved_year = year;
+        updateUser(userId, user);
+        
+        await ctx.reply(`✅ Exam year set to: ${year}`);
+        
+    } catch (error) {
+        console.error('Setyear error:', error);
+        await ctx.reply('⚠️ Error setting year. Please try again.');
+    }
+});
+
+// ========================================
+// ১৪. Settings Command - NEW
+// ========================================
+
+bot.command('settings', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        const user = getUser(userId);
+        
+        if (!user) {
+            await ctx.reply('❌ Profile not found. Use /start first.');
+            return;
+        }
+        
+        const currentSemester = user.saved_semester || '1';
+        const currentYear = user.saved_year || '2024';
+        const roll = user.saved_roll || 'Not set';
+        const reg = user.saved_reg || 'Not set';
+        
+        let msg = `⚙️ Settings\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+        msg += `🔢 Roll: ${roll}\n`;
+        msg += `📋 Reg: ${reg}\n`;
+        msg += `📘 Semester: ${currentSemester}\n`;
+        msg += `📅 Year: ${currentYear}\n\n`;
+        msg += `To change:\n`;
+        msg += `• /setroll <roll> <reg>\n`;
+        msg += `• /setsemester <1-8>\n`;
+        msg += `• /setyear <YYYY>`;
+        
+        const keyboard = Markup.inlineKeyboard([
+            [
+                Markup.button.callback('📘 Semester 1', 'set_sem_1'),
+                Markup.button.callback('📘 Semester 2', 'set_sem_2'),
+                Markup.button.callback('📘 Semester 3', 'set_sem_3')
+            ],
+            [
+                Markup.button.callback('📘 Semester 4', 'set_sem_4'),
+                Markup.button.callback('📘 Semester 5', 'set_sem_5'),
+                Markup.button.callback('📘 Semester 6', 'set_sem_6')
+            ],
+            [
+                Markup.button.callback('📘 Semester 7', 'set_sem_7'),
+                Markup.button.callback('📘 Semester 8', 'set_sem_8')
+            ],
+            [
+                Markup.button.callback('📅 Year 2023', 'set_year_2023'),
+                Markup.button.callback('📅 Year 2024', 'set_year_2024'),
+                Markup.button.callback('📅 Year 2025', 'set_year_2025')
+            ]
+        ]);
+        
+        await ctx.reply(msg, keyboard);
+        
+    } catch (error) {
+        console.error('Settings error:', error);
+        await ctx.reply('⚠️ Error loading settings.');
+    }
+});
+
+// ========================================
+// ১৫. অ্যাডমিন কমান্ড
 // ========================================
 
 bot.command('admin', adminOnly, async (ctx) => {
@@ -1326,7 +1512,7 @@ bot.command('clear_feedback', adminOnly, async (ctx) => {
 });
 
 // ========================================
-// ১৩. BTEB Result Command
+// ১৬. BTEB Result Command
 // ========================================
 
 bot.command('bteb', async (ctx) => {
@@ -1348,11 +1534,15 @@ bot.command('bteb', async (ctx) => {
         
         const roll = user.saved_roll;
         const regNo = user.saved_reg;
-        const semester = '1';
-        const examYear = '2024';
+        const semester = user.saved_semester || '1';
+        const examYear = user.saved_year || '2024';
         const curriculumCode = '15';
         
-        await ctx.reply(`⏳ Fetching BTEB result for:\nRoll: ${roll}\nReg: ${regNo}`);
+        await ctx.reply(`⏳ Fetching BTEB result for:\n` +
+            `Roll: ${roll}\n` +
+            `Reg: ${regNo}\n` +
+            `Semester: ${semester}\n` +
+            `Year: ${examYear}`);
         
         // Get captcha
         const captchaData = await session.getCaptcha();
@@ -1404,7 +1594,7 @@ bot.command('bteb', async (ctx) => {
 });
 
 // ========================================
-// ১৪. BTEB Manual Command
+// ১৭. BTEB Manual Command
 // ========================================
 
 bot.command('bteb_manual', async (ctx) => {
@@ -1430,7 +1620,11 @@ bot.command('bteb_manual', async (ctx) => {
         const examYear = args[3] || '2024';
         const curriculumCode = '15';
         
-        await ctx.reply(`⏳ Fetching BTEB result for:\nRoll: ${roll}\nReg: ${regNo}\nSemester: ${semester}\nYear: ${examYear}`);
+        await ctx.reply(`⏳ Fetching BTEB result for:\n` +
+            `Roll: ${roll}\n` +
+            `Reg: ${regNo}\n` +
+            `Semester: ${semester}\n` +
+            `Year: ${examYear}`);
         
         const captchaData = await session.getCaptcha();
         if (!captchaData) {
@@ -1479,11 +1673,15 @@ bot.command('bteb_manual', async (ctx) => {
                     username: ctx.from.username || '',
                     display_name: getUserDisplayName(ctx.from),
                     saved_roll: null,
-                    saved_reg: null
+                    saved_reg: null,
+                    saved_semester: '1',
+                    saved_year: '2024'
                 };
             }
             user.saved_roll = roll;
             user.saved_reg = regNo;
+            user.saved_semester = semester;
+            user.saved_year = examYear;
             updateUser(userId, user);
             await ctx.reply(`✅ Roll ${roll} and Reg ${regNo} saved for quick access!`);
         } else {
@@ -1497,7 +1695,7 @@ bot.command('bteb_manual', async (ctx) => {
 });
 
 // ========================================
-// ১৫. কুইক রিপ্লাই বাটন হ্যান্ডলার
+// ১৮. কুইক রিপ্লাই বাটন হ্যান্ডলার
 // ========================================
 
 bot.hears('🔍 New Search', async (ctx) => {
@@ -1517,8 +1715,8 @@ bot.hears('📊 My Result', async (ctx) => {
                 'Example: /setroll 240363 1502416118',
                 Markup.keyboard([
                     ['🔍 New Search'],
-                    ['📘 BTEB Result', 'ℹ️ Help'],
-                    ['⭐ Feedback']
+                    ['📘 BTEB Result', '⚙️ Settings'],
+                    ['ℹ️ Help', '⭐ Feedback']
                 ]).resize().oneTime()
             );
             return;
@@ -1560,8 +1758,8 @@ bot.hears('📊 My Result', async (ctx) => {
         
         const keyboard = Markup.keyboard([
             ['🔍 New Search', '📊 My Result'],
-            ['📘 BTEB Result', 'ℹ️ Help'],
-            ['⭐ Feedback']
+            ['📘 BTEB Result', '⚙️ Settings'],
+            ['ℹ️ Help', '⭐ Feedback']
         ]).resize().oneTime();
         await ctx.reply('🔍 What would you like to do?', keyboard);
         
@@ -1596,6 +1794,17 @@ bot.hears('📘 BTEB Result', async (ctx) => {
     }
 });
 
+bot.hears('⚙️ Settings', async (ctx) => {
+    try {
+        // Trigger the /settings command
+        ctx.message.text = '/settings';
+        await bot.handleUpdate(ctx.update);
+    } catch (error) {
+        console.error('Settings button error:', error);
+        await ctx.reply('⚠️ Error loading settings.');
+    }
+});
+
 bot.hears('ℹ️ Help', async (ctx) => {
     const isAdminUser = isAdmin(ctx.from.id);
     let msg = `📖 How to use:\n\n`;
@@ -1603,7 +1812,8 @@ bot.hears('ℹ️ Help', async (ctx) => {
     msg += `2️⃣ Bot will show student info & result\n`;
     msg += `3️⃣ Use "📊 My Result" to see saved result\n`;
     msg += `4️⃣ Use "📘 BTEB Result" for detailed result with subjects & grades\n`;
-    msg += `5️⃣ Give feedback with "⭐ Feedback"\n\n`;
+    msg += `5️⃣ Use "⚙️ Settings" to change semester & year\n`;
+    msg += `6️⃣ Give feedback with "⭐ Feedback"\n\n`;
     msg += `⚡ Commands:\n`;
     msg += `• /start - Restart bot\n`;
     msg += `• /help - Show this help\n`;
@@ -1611,6 +1821,9 @@ bot.hears('ℹ️ Help', async (ctx) => {
     msg += `• /myid - Your Telegram ID\n`;
     msg += `• /about - About the bot\n`;
     msg += `• /setroll - Set your roll and registration\n`;
+    msg += `• /setsemester - Set semester (1-8)\n`;
+    msg += `• /setyear - Set exam year\n`;
+    msg += `• /settings - View and change settings\n`;
     msg += `• /bteb - Get detailed BTEB result\n`;
     msg += `• /bteb_manual - Manual BTEB result entry`;
     if (isAdminUser) {
@@ -1629,7 +1842,7 @@ bot.hears('⭐ Feedback', async (ctx) => {
 });
 
 // ========================================
-// ১৬. ফিডব্যাক কমান্ড
+// ১৯. ফিডব্যাক কমান্ড
 // ========================================
 
 bot.command('feedback', async (ctx) => {
@@ -1674,7 +1887,7 @@ bot.command('feedback', async (ctx) => {
 });
 
 // ========================================
-// ১৭. সার্চ হ্যান্ডলার
+// ২০. সার্চ হ্যান্ডলার
 // ========================================
 
 bot.on('text', async (ctx) => {
@@ -1684,7 +1897,7 @@ bot.on('text', async (ctx) => {
         const text = ctx.message.text.trim();
 
         // কুইক রিপ্লাই বাটন চেক
-        if (['🔍 New Search', '📊 My Result', '📘 BTEB Result', 'ℹ️ Help', '⭐ Feedback'].includes(text)) {
+        if (['🔍 New Search', '📊 My Result', '📘 BTEB Result', '⚙️ Settings', 'ℹ️ Help', '⭐ Feedback'].includes(text)) {
             return;
         }
 
@@ -1735,6 +1948,8 @@ bot.on('text', async (ctx) => {
         if (studentFound && studentInfo) {
             user.saved_roll = studentInfo.roll || roll;
             user.saved_reg = studentInfo.reg || studentInfo.registration || null;
+            if (!user.saved_semester) user.saved_semester = '1';
+            if (!user.saved_year) user.saved_year = '2024';
         }
         
         updateUser(userId, user);
@@ -1781,12 +1996,14 @@ bot.on('text', async (ctx) => {
         if (resultShown) {
             const actionKeyboard = Markup.inlineKeyboard([
                 [Markup.button.callback('📘 BTEB Result', `bteb_${roll}`)],
+                [Markup.button.callback('⚙️ Settings', 'settings_menu')],
                 [Markup.button.callback('🔍 New Search', 'new_search')]
             ]);
             
             await ctx.reply(
                 `✅ Roll ${roll} found and saved!\n\n` +
-                `Use "📘 BTEB Result" for detailed subject-wise results with grades.`,
+                `Use "📘 BTEB Result" for detailed subject-wise results with grades.\n` +
+                `Use "⚙️ Settings" to change semester or year.`,
                 actionKeyboard
             );
         }
@@ -1799,8 +2016,8 @@ bot.on('text', async (ctx) => {
         // ৬. কুইক রিপ্লাই কীবোর্ড দেখান
         const keyboard = Markup.keyboard([
             ['🔍 New Search', '📊 My Result'],
-            ['📘 BTEB Result', 'ℹ️ Help'],
-            ['⭐ Feedback']
+            ['📘 BTEB Result', '⚙️ Settings'],
+            ['ℹ️ Help', '⭐ Feedback']
         ]).resize().oneTime();
         
         await ctx.reply('🔍 What would you like to do next?', keyboard);
@@ -1812,7 +2029,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ========================================
-// ১৮. ইনলাইন কীবোর্ড ক্যালব্যাক হ্যান্ডলার
+// ২১. ইনলাইন কীবোর্ড ক্যালব্যাক হ্যান্ডলার
 // ========================================
 
 bot.action(/bteb_(.+)/, async (ctx) => {
@@ -1837,23 +2054,24 @@ bot.action(/bteb_(.+)/, async (ctx) => {
             return;
         }
         
+        // Get user settings
+        const user = getUser(userId) || {
+            saved_semester: '1',
+            saved_year: '2024'
+        };
+        const semester = user.saved_semester || '1';
+        const examYear = user.saved_year || '2024';
+        
         // Save to user
-        let user = getUser(userId);
-        if (!user) {
-            user = {
-                total_searches: 0,
-                joined: getBSTTimestamp(),
-                first_name: ctx.from.first_name || '',
-                last_name: ctx.from.last_name || '',
-                username: ctx.from.username || '',
-                display_name: getUserDisplayName(ctx.from),
-                saved_roll: null,
-                saved_reg: null
-            };
+        if (!user.saved_roll) {
+            user.saved_roll = roll;
+            user.saved_reg = regNo;
+            user.saved_semester = semester;
+            user.saved_year = examYear;
+            updateUser(userId, user);
         }
-        user.saved_roll = roll;
-        user.saved_reg = regNo;
-        updateUser(userId, user);
+        
+        await ctx.reply(`⏳ Fetching BTEB result for:\nRoll: ${roll}\nSemester: ${semester}\nYear: ${examYear}`);
         
         // Get captcha
         const captchaData = await session.getCaptcha();
@@ -1877,8 +2095,8 @@ bot.action(/bteb_(.+)/, async (ctx) => {
             '15',
             roll,
             regNo,
-            '1',
-            '2024',
+            semester,
+            examYear,
             token,
             String(answer)
         );
@@ -1902,6 +2120,94 @@ bot.action(/bteb_(.+)/, async (ctx) => {
     }
 });
 
+// Settings menu callback
+bot.action('settings_menu', async (ctx) => {
+    try {
+        await ctx.answerCbQuery('⚙️ Opening settings...');
+        ctx.message.text = '/settings';
+        await bot.handleUpdate(ctx.update);
+    } catch (error) {
+        console.error('Settings menu error:', error);
+        await ctx.answerCbQuery('⚠️ Error!');
+    }
+});
+
+// Semester setting callbacks
+bot.action(/set_sem_([1-8])/, async (ctx) => {
+    try {
+        const semester = ctx.match[1];
+        const userId = ctx.from.id;
+        
+        let user = getUser(userId);
+        if (!user) {
+            user = {
+                total_searches: 0,
+                joined: getBSTTimestamp(),
+                first_name: ctx.from.first_name || '',
+                last_name: ctx.from.last_name || '',
+                username: ctx.from.username || '',
+                display_name: getUserDisplayName(ctx.from),
+                saved_roll: null,
+                saved_reg: null,
+                saved_semester: '1',
+                saved_year: '2024'
+            };
+        }
+        
+        user.saved_semester = semester;
+        updateUser(userId, user);
+        
+        await ctx.answerCbQuery(`✅ Semester set to ${semester}`);
+        await ctx.reply(`✅ Semester updated to: ${semester}\n\nUse "📘 BTEB Result" to see results.`);
+        
+        // Update settings display
+        ctx.message.text = '/settings';
+        await bot.handleUpdate(ctx.update);
+        
+    } catch (error) {
+        console.error('Set semester callback error:', error);
+        await ctx.answerCbQuery('⚠️ Error!');
+    }
+});
+
+// Year setting callbacks
+bot.action(/set_year_(\d{4})/, async (ctx) => {
+    try {
+        const year = ctx.match[1];
+        const userId = ctx.from.id;
+        
+        let user = getUser(userId);
+        if (!user) {
+            user = {
+                total_searches: 0,
+                joined: getBSTTimestamp(),
+                first_name: ctx.from.first_name || '',
+                last_name: ctx.from.last_name || '',
+                username: ctx.from.username || '',
+                display_name: getUserDisplayName(ctx.from),
+                saved_roll: null,
+                saved_reg: null,
+                saved_semester: '1',
+                saved_year: '2024'
+            };
+        }
+        
+        user.saved_year = year;
+        updateUser(userId, user);
+        
+        await ctx.answerCbQuery(`✅ Year set to ${year}`);
+        await ctx.reply(`✅ Year updated to: ${year}\n\nUse "📘 BTEB Result" to see results.`);
+        
+        // Update settings display
+        ctx.message.text = '/settings';
+        await bot.handleUpdate(ctx.update);
+        
+    } catch (error) {
+        console.error('Set year callback error:', error);
+        await ctx.answerCbQuery('⚠️ Error!');
+    }
+});
+
 bot.action('new_search', async (ctx) => {
     try {
         await ctx.answerCbQuery('🔍 Start a new search');
@@ -1913,7 +2219,7 @@ bot.action('new_search', async (ctx) => {
 });
 
 // ========================================
-// ১৯. টেস্ট কমান্ড
+// ২২. টেস্ট কমান্ড
 // ========================================
 
 bot.command('test', async (ctx) => {
@@ -1937,7 +2243,7 @@ bot.command('test', async (ctx) => {
 });
 
 // ========================================
-// ২০. টাইম কমান্ড
+// ২৩. টাইম কমান্ড
 // ========================================
 
 bot.command('time', async (ctx) => {
@@ -1951,7 +2257,7 @@ bot.command('time', async (ctx) => {
 });
 
 // ========================================
-// ২১. এরর হ্যান্ডলার
+// ২৪. এরর হ্যান্ডলার
 // ========================================
 
 bot.catch((err, ctx) => {
@@ -1960,7 +2266,7 @@ bot.catch((err, ctx) => {
 });
 
 // ========================================
-// ২২. বট স্টার্ট এবং ওয়েব সার্ভার
+// ২৫. বট স্টার্ট এবং ওয়েব সার্ভার
 // ========================================
 
 console.log('🤖 Bot starting...');
@@ -2002,9 +2308,12 @@ bot.launch({
     console.log('   • Asia/Dhaka Timezone (UTC+6) - 24h Format');
     console.log('   • Admin Notification on every search');
     console.log('   • Auto-save roll and registration on search');
-    console.log('   • /setroll command to manually set roll & reg');
+    console.log('   • /setroll - Set roll and registration');
+    console.log('   • /setsemester - Set semester (1-8)');
+    console.log('   • /setyear - Set exam year');
+    console.log('   • /settings - View and change settings');
     console.log('   • 📘 Enhanced BTEB Result with Subjects & Grades Table');
-    console.log('   • No "Save Roll" button - auto-save on search');
+    console.log('   • Semester & Year selection via Settings');
     console.log('   • One-click result from "My Result" button');
     console.log('   • Roll change option via /setroll');
     console.log('   • Feedback System');
