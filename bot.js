@@ -381,25 +381,20 @@ function getUserDisplayWithUsername(user) {
 
 function solveMathQuestion(question) {
     try {
-        // Remove spaces and parse
         const cleaned = question.replace(/\s/g, '');
         
-        // Handle addition
         if (cleaned.includes('+')) {
             const parts = cleaned.split('+');
             return parseInt(parts[0]) + parseInt(parts[1]);
         }
-        // Handle subtraction
         if (cleaned.includes('-')) {
             const parts = cleaned.split('-');
             return parseInt(parts[0]) - parseInt(parts[1]);
         }
-        // Handle multiplication
         if (cleaned.includes('*')) {
             const parts = cleaned.split('*');
             return parseInt(parts[0]) * parseInt(parts[1]);
         }
-        // Handle division
         if (cleaned.includes('/')) {
             const parts = cleaned.split('/');
             return parseInt(parts[0]) / parseInt(parts[1]);
@@ -565,7 +560,7 @@ function formatResultData(resultData, roll) {
     return reply;
 }
 
-// ===== নতুন BTEB Result Formatter with Subjects and Grades =====
+// ===== উন্নত BTEB Result Formatter with Subjects and Grades =====
 function formatBTEBResult(btebData) {
     if (!btebData || !btebData.data) {
         return null;
@@ -591,19 +586,20 @@ function formatBTEBResult(btebData) {
             const semNum = semester.semester;
             const gpa = semester.gpa;
             const status = gpa?.status || 'N/A';
-            const statusEmoji = status === 'P' ? '✅' : '❌';
+            const statusEmoji = status === 'P' ? '✅' : status === 'F' ? '❌' : '❓';
+            const statusText = status === 'P' ? 'Passed' : status === 'F' ? 'Failed' : 'Unknown';
             
             reply += `📘 Semester ${semNum}\n`;
             reply += `━━━━━━━━━━━━━━━━━━━━\n`;
             reply += `📊 GPA: ${gpa?.gpa || 'N/A'}\n`;
-            reply += `📌 Status: ${statusEmoji} ${status === 'P' ? 'Passed' : status === 'F' ? 'Failed' : 'N/A'}\n`;
+            reply += `📌 Status: ${statusEmoji} ${statusText}\n`;
             
-            // Subjects
+            // Subjects with improved table
             if (semester.subjects && semester.subjects.length > 0) {
                 reply += `\n📚 Subjects:\n`;
-                reply += `┌─────────────────────────────────┬────────┬──────────┐\n`;
-                reply += `│ Subject Name                    │ Credit │ Grade    │\n`;
-                reply += `├─────────────────────────────────┼────────┼──────────┤\n`;
+                reply += `┌─────────────────────────────────┬────────┬──────────┬─────────┐\n`;
+                reply += `│ Subject Name                    │ Credit │ Grade    │ GP      │\n`;
+                reply += `├─────────────────────────────────┼────────┼──────────┼─────────┤\n`;
                 
                 for (const subject of semester.subjects) {
                     const name = subject.subjectName || 'N/A';
@@ -614,11 +610,20 @@ function formatBTEBResult(btebData) {
                     // Pad name to fit in table
                     const paddedName = name.length > 31 ? name.substring(0, 28) + '...' : name.padEnd(31);
                     const paddedCredit = String(credit).padEnd(6);
-                    const paddedGrade = `${grade} (${gp})`.padEnd(8);
+                    const paddedGrade = String(grade).padEnd(8);
+                    const paddedGP = String(gp).padEnd(7);
                     
-                    reply += `│ ${paddedName} │ ${paddedCredit} │ ${paddedGrade} │\n`;
+                    reply += `│ ${paddedName} │ ${paddedCredit} │ ${paddedGrade} │ ${paddedGP} │\n`;
                 }
-                reply += `└─────────────────────────────────┴────────┴──────────┘\n`;
+                reply += `└─────────────────────────────────┴────────┴──────────┴─────────┘\n`;
+            }
+            
+            // Optional Subjects
+            if (semester.optionalSubjects && semester.optionalSubjects.length > 0) {
+                reply += `\n📚 Optional Subjects:\n`;
+                for (const subject of semester.optionalSubjects) {
+                    reply += `• ${subject.subjectName || 'N/A'} - ${subject.gradeLetter || 'N/A'} (${subject.gradePoint || 'N/A'})\n`;
+                }
             }
             
             reply += `\n`;
@@ -657,7 +662,10 @@ function formatBTEBResult(btebData) {
         reply += `• CGPA: ${cgpa.toFixed(2)}\n`;
     }
     
-    reply += `\n📅 Result Published: ${semesters[0]?.meta?.resultPublish || 'N/A'}`;
+    // Result publish date
+    if (semesters.length > 0 && semesters[0].meta?.resultPublish) {
+        reply += `\n📅 Published: ${semesters[0].meta.resultPublish}`;
+    }
 
     return reply;
 }
@@ -789,7 +797,8 @@ bot.command('start', async (ctx) => {
                 last_name: userInfo.last_name || '',
                 username: userInfo.username || '',
                 display_name: getUserDisplayName(userInfo),
-                saved_roll: null
+                saved_roll: null,
+                saved_reg: null
             };
             updateUser(userId, user);
         } else {
@@ -815,7 +824,10 @@ bot.command('start', async (ctx) => {
         msg += `📊 Your Status:\n`;
         msg += `• Total Searches: ${user.total_searches || 0}\n`;
         if (isAdminUser) msg += `• 👑 Admin\n`;
-        if (user.saved_roll) msg += `• 💾 Saved Roll: ${user.saved_roll}\n`;
+        if (user.saved_roll) {
+            msg += `• 💾 Saved Roll: ${user.saved_roll}\n`;
+            msg += `• 📋 Saved Reg: ${user.saved_reg || 'N/A'}\n`;
+        }
         msg += `• 📅 Joined: ${formatBSTDate24h(new Date(user.joined))}`;
         
         await ctx.reply(msg, keyboard);
@@ -834,7 +846,7 @@ bot.command('help', async (ctx) => {
         msg += `1️⃣ Send a roll number or click "🔍 New Search"\n`;
         msg += `2️⃣ Bot will show student info & result\n`;
         msg += `3️⃣ Use "📊 My Result" to see saved result\n`;
-        msg += `4️⃣ Use "📘 BTEB Result" for detailed result with grades\n`;
+        msg += `4️⃣ Use "📘 BTEB Result" for detailed result with subjects & grades\n`;
         msg += `5️⃣ Give feedback with "⭐ Feedback"\n\n`;
         msg += `⚡ Commands:\n`;
         msg += `• /start - Restart bot\n`;
@@ -842,7 +854,9 @@ bot.command('help', async (ctx) => {
         msg += `• /stats - Your statistics\n`;
         msg += `• /myid - Your Telegram ID\n`;
         msg += `• /about - About the bot\n`;
-        msg += `• /bteb - Get detailed BTEB result with subjects & grades`;
+        msg += `• /setroll - Set your roll number\n`;
+        msg += `• /bteb - Get detailed BTEB result\n`;
+        msg += `• /bteb_manual - Manual BTEB result entry`;
         if (isAdminUser) {
             msg += `\n\n👑 Admin Commands:\n`;
             msg += `• /admin - Admin Panel`;
@@ -870,8 +884,11 @@ bot.command('stats', async (ctx) => {
         if (user.username) msg += `🔸 Username: @${user.username}\n`;
         msg += `📅 Joined: ${formatBSTDate24h(new Date(user.joined))}\n`;
         msg += `🔢 Total Searches: ${user.total_searches || 0}\n`;
-        if (user.saved_roll) msg += `💾 Saved Roll: ${user.saved_roll}\n\n`;
-        msg += `🎯 Send roll number for new search.`;
+        if (user.saved_roll) {
+            msg += `💾 Saved Roll: ${user.saved_roll}\n`;
+            msg += `📋 Saved Reg: ${user.saved_reg || 'N/A'}\n`;
+        }
+        msg += `\n🎯 Send roll number for new search.`;
         await ctx.reply(msg);
     } catch (error) {
         console.error('Stats error:', error);
@@ -889,7 +906,10 @@ bot.command('myid', async (ctx) => {
         let msg = `🆔 Your ID: ${userId}\n\n`;
         msg += `👤 Name: ${user?.display_name || 'Unknown'}\n`;
         if (user?.username) msg += `🔸 Username: @${user.username}\n`;
-        if (user?.saved_roll) msg += `💾 Saved Roll: ${user.saved_roll}\n`;
+        if (user?.saved_roll) {
+            msg += `💾 Saved Roll: ${user.saved_roll}\n`;
+            msg += `📋 Saved Reg: ${user.saved_reg || 'N/A'}\n`;
+        }
         msg += `👑 Admin: ${isAdminUser ? '✅ Yes' : '❌ No'}\n\n`;
         await ctx.reply(msg);
     } catch (error) {
@@ -915,7 +935,7 @@ bot.command('about', async (ctx) => {
         msg += `• Completely free\n`;
         msg += `• 24/7 active\n\n`;
         msg += `📌 Developer: Oahid Towsif Shamol\n`;
-        msg += `📅 Version: 7.0 (Asia/Dhaka Timezone)\n`;
+        msg += `📅 Version: 7.1 (Asia/Dhaka Timezone)\n`;
         msg += `🕐 Time Zone: Asia/Dhaka (UTC+06:00) 24h Format`;
         await ctx.reply(msg);
     } catch (error) {
@@ -925,7 +945,72 @@ bot.command('about', async (ctx) => {
 });
 
 // ========================================
-// ১১. অ্যাডমিন কমান্ড
+// ১১. Set Roll Command - NEW
+// ========================================
+
+bot.command('setroll', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        const args = ctx.message.text.split(' ');
+        
+        args.shift(); // Remove command
+        
+        if (args.length < 2) {
+            await ctx.reply(
+                '📝 Set your roll and registration number\n\n' +
+                'Usage: /setroll <roll> <reg>\n\n' +
+                'Example: /setroll 240363 1502416118\n\n' +
+                'This will save your roll for quick access.'
+            );
+            return;
+        }
+        
+        const roll = args[0];
+        const reg = args[1];
+        
+        if (!/^\d{6,7}$/.test(roll)) {
+            await ctx.reply('❌ Invalid roll number! Must be 6 or 7 digits.');
+            return;
+        }
+        
+        if (!/^\d{10}$/.test(reg)) {
+            await ctx.reply('❌ Invalid registration number! Must be 10 digits.');
+            return;
+        }
+        
+        let user = getUser(userId);
+        if (!user) {
+            user = {
+                total_searches: 0,
+                joined: getBSTTimestamp(),
+                first_name: ctx.from.first_name || '',
+                last_name: ctx.from.last_name || '',
+                username: ctx.from.username || '',
+                display_name: getUserDisplayName(ctx.from),
+                saved_roll: null,
+                saved_reg: null
+            };
+        }
+        
+        user.saved_roll = roll;
+        user.saved_reg = reg;
+        updateUser(userId, user);
+        
+        await ctx.reply(
+            `✅ Roll and Registration saved successfully!\n\n` +
+            `🔢 Roll: ${roll}\n` +
+            `📋 Reg: ${reg}\n\n` +
+            `Use "📊 My Result" or "📘 BTEB Result" to view results.`
+        );
+        
+    } catch (error) {
+        console.error('Setroll error:', error);
+        await ctx.reply('⚠️ Error saving roll. Please try again.');
+    }
+});
+
+// ========================================
+// ১২. অ্যাডমিন কমান্ড
 // ========================================
 
 bot.command('admin', adminOnly, async (ctx) => {
@@ -1241,7 +1326,7 @@ bot.command('clear_feedback', adminOnly, async (ctx) => {
 });
 
 // ========================================
-// ১২. BTEB Result Command - NEW
+// ১৩. BTEB Result Command
 // ========================================
 
 bot.command('bteb', async (ctx) => {
@@ -1249,38 +1334,25 @@ bot.command('bteb', async (ctx) => {
         const userId = ctx.from.id;
         console.log(`✅ /bteb from: ${userId}`);
         
-        // Check if user has saved roll
         const user = getUser(userId);
-        if (!user || !user.saved_roll) {
+        if (!user || !user.saved_roll || !user.saved_reg) {
             await ctx.reply(
-                '❌ No saved roll found!\n\n' +
-                'Please search a student first to save their roll.\n' +
+                '❌ No saved roll or registration found!\n\n' +
+                'Please set your roll and registration first:\n' +
+                '/setroll <roll> <reg>\n\n' +
+                'Example: /setroll 240363 1502416118\n\n' +
                 'Or use: /bteb_manual to enter details manually.'
             );
             return;
         }
         
-        // Get student info from saved roll
         const roll = user.saved_roll;
-        await ctx.reply(`⏳ Fetching BTEB result for roll: ${roll}...`);
+        const regNo = user.saved_reg;
+        const semester = '1';
+        const examYear = '2024';
+        const curriculumCode = '15';
         
-        // First get student info to get reg number
-        const studentResult = await session.searchStudent(roll);
-        if (!studentResult || !studentResult.rows || studentResult.rows.length === 0) {
-            await ctx.reply(`❌ No student found with roll: ${roll}`);
-            return;
-        }
-        
-        const studentInfo = studentResult.rows[0];
-        const regNo = studentInfo.reg || studentInfo.registration;
-        
-        if (!regNo) {
-            await ctx.reply('❌ Registration number not found for this student.');
-            return;
-        }
-        
-        // Now get BTEB result
-        await ctx.reply('🔄 Getting captcha from BTEB...');
+        await ctx.reply(`⏳ Fetching BTEB result for:\nRoll: ${roll}\nReg: ${regNo}`);
         
         // Get captcha
         const captchaData = await session.getCaptcha();
@@ -1300,13 +1372,6 @@ bot.command('bteb', async (ctx) => {
         
         await ctx.reply(`🧮 Captcha: ${question} = ${answer}`);
         
-        // Get curriculum (use 15 as default)
-        const curriculumCode = '15';
-        const semester = '1';
-        const examYear = '2024';
-        
-        await ctx.reply('📊 Fetching detailed result from BTEB...');
-        
         const btebResult = await session.getBTEBResult(
             curriculumCode,
             roll,
@@ -1322,7 +1387,6 @@ bot.command('bteb', async (ctx) => {
             return;
         }
         
-        // Format and display result
         const formattedResult = formatBTEBResult(btebResult);
         if (formattedResult) {
             await ctx.reply(formattedResult);
@@ -1331,7 +1395,7 @@ bot.command('bteb', async (ctx) => {
         }
         
         // Add to history
-        addHistory(userId, roll, true, studentInfo);
+        addHistory(userId, roll, true, null);
         
     } catch (error) {
         console.error('BTEB command error:', error);
@@ -1340,7 +1404,7 @@ bot.command('bteb', async (ctx) => {
 });
 
 // ========================================
-// ১৩. BTEB Manual Command - NEW
+// ১৪. BTEB Manual Command
 // ========================================
 
 bot.command('bteb_manual', async (ctx) => {
@@ -1348,15 +1412,13 @@ bot.command('bteb_manual', async (ctx) => {
         const userId = ctx.from.id;
         const args = ctx.message.text.split(' ');
         
-        // Remove command from args
         args.shift();
         
         if (args.length < 2) {
             await ctx.reply(
                 '📘 BTEB Result Manual Entry\n\n' +
-                'Usage: /bteb_manual <roll> <reg>\n\n' +
-                'Example: /bteb_manual 240363 1502416118\n\n' +
-                'Optional: Add semester and year\n' +
+                'Usage: /bteb_manual <roll> <reg> [semester] [year]\n\n' +
+                'Example: /bteb_manual 240363 1502416118\n' +
                 '/bteb_manual 240363 1502416118 1 2024'
             );
             return;
@@ -1370,7 +1432,6 @@ bot.command('bteb_manual', async (ctx) => {
         
         await ctx.reply(`⏳ Fetching BTEB result for:\nRoll: ${roll}\nReg: ${regNo}\nSemester: ${semester}\nYear: ${examYear}`);
         
-        // Get captcha
         const captchaData = await session.getCaptcha();
         if (!captchaData) {
             await ctx.reply('❌ Failed to get captcha. Please try again.');
@@ -1409,11 +1470,22 @@ bot.command('bteb_manual', async (ctx) => {
             
             // Save roll for future use
             let user = getUser(userId);
-            if (user) {
-                user.saved_roll = roll;
-                updateUser(userId, user);
-                await ctx.reply(`✅ Roll ${roll} saved for quick access!`);
+            if (!user) {
+                user = {
+                    total_searches: 0,
+                    joined: getBSTTimestamp(),
+                    first_name: ctx.from.first_name || '',
+                    last_name: ctx.from.last_name || '',
+                    username: ctx.from.username || '',
+                    display_name: getUserDisplayName(ctx.from),
+                    saved_roll: null,
+                    saved_reg: null
+                };
             }
+            user.saved_roll = roll;
+            user.saved_reg = regNo;
+            updateUser(userId, user);
+            await ctx.reply(`✅ Roll ${roll} and Reg ${regNo} saved for quick access!`);
         } else {
             await ctx.reply('❌ No result data found.');
         }
@@ -1425,7 +1497,7 @@ bot.command('bteb_manual', async (ctx) => {
 });
 
 // ========================================
-// ১৪. কুইক রিপ্লাই বাটন হ্যান্ডলার
+// ১৫. কুইক রিপ্লাই বাটন হ্যান্ডলার
 // ========================================
 
 bot.hears('🔍 New Search', async (ctx) => {
@@ -1440,7 +1512,9 @@ bot.hears('📊 My Result', async (ctx) => {
         if (!user || !user.saved_roll) {
             await ctx.reply(
                 '❌ No saved roll number found!\n\n' +
-                '🔍 First search a student, then use "Save Roll" button to save.',
+                'Please set your roll first:\n' +
+                '/setroll <roll> <reg>\n\n' +
+                'Example: /setroll 240363 1502416118',
                 Markup.keyboard([
                     ['🔍 New Search'],
                     ['📘 BTEB Result', 'ℹ️ Help'],
@@ -1502,12 +1576,12 @@ bot.hears('📘 BTEB Result', async (ctx) => {
         const userId = ctx.from.id;
         const user = getUser(userId);
         
-        if (!user || !user.saved_roll) {
+        if (!user || !user.saved_roll || !user.saved_reg) {
             await ctx.reply(
-                '❌ No saved roll number found!\n\n' +
-                'To get BTEB result, you need a saved roll.\n' +
-                'Use: /bteb_manual <roll> <reg>\n\n' +
-                'Or search a student first to save their roll.'
+                '❌ No saved roll or registration found!\n\n' +
+                'Please set your roll and registration first:\n' +
+                '/setroll <roll> <reg>\n\n' +
+                'Example: /setroll 240363 1502416118'
             );
             return;
         }
@@ -1536,6 +1610,7 @@ bot.hears('ℹ️ Help', async (ctx) => {
     msg += `• /stats - Your statistics\n`;
     msg += `• /myid - Your Telegram ID\n`;
     msg += `• /about - About the bot\n`;
+    msg += `• /setroll - Set your roll and registration\n`;
     msg += `• /bteb - Get detailed BTEB result\n`;
     msg += `• /bteb_manual - Manual BTEB result entry`;
     if (isAdminUser) {
@@ -1554,7 +1629,7 @@ bot.hears('⭐ Feedback', async (ctx) => {
 });
 
 // ========================================
-// ১৫. ফিডব্যাক কমান্ড
+// ১৬. ফিডব্যাক কমান্ড
 // ========================================
 
 bot.command('feedback', async (ctx) => {
@@ -1599,7 +1674,7 @@ bot.command('feedback', async (ctx) => {
 });
 
 // ========================================
-// ১৬. সার্চ হ্যান্ডলার
+// ১৭. সার্চ হ্যান্ডলার
 // ========================================
 
 bot.on('text', async (ctx) => {
@@ -1655,6 +1730,13 @@ bot.on('text', async (ctx) => {
         user = getUser(userId) || { total_searches: 0 };
         user.total_searches = (user.total_searches || 0) + 1;
         user.joined = user.joined || getBSTTimestamp();
+        
+        // Auto save roll and reg if found
+        if (studentFound && studentInfo) {
+            user.saved_roll = studentInfo.roll || roll;
+            user.saved_reg = studentInfo.reg || studentInfo.registration || null;
+        }
+        
         updateUser(userId, user);
 
         const hasResult = resultData && resultData.success && resultData.data && resultData.data.length > 0;
@@ -1695,20 +1777,17 @@ bot.on('text', async (ctx) => {
             );
         }
 
-        // ৪. সেভ রোল বাটন (যদি রেজাল্ট পাওয়া যায়)
+        // ৪. Success message with quick actions
         if (resultShown) {
-            user.saved_roll = roll;
-            updateUser(userId, user);
-            
-            const saveKeyboard = Markup.inlineKeyboard([
-                [Markup.button.callback('💾 Save This Roll', `save_${roll}`)],
+            const actionKeyboard = Markup.inlineKeyboard([
                 [Markup.button.callback('📘 BTEB Result', `bteb_${roll}`)],
                 [Markup.button.callback('🔍 New Search', 'new_search')]
             ]);
             
             await ctx.reply(
-                `💡 You can save this roll for quick access!\nRoll: ${roll}`,
-                saveKeyboard
+                `✅ Roll ${roll} found and saved!\n\n` +
+                `Use "📘 BTEB Result" for detailed subject-wise results with grades.`,
+                actionKeyboard
             );
         }
 
@@ -1733,28 +1812,8 @@ bot.on('text', async (ctx) => {
 });
 
 // ========================================
-// ১৭. ইনলাইন কীবোর্ড ক্যালব্যাক হ্যান্ডলার
+// ১৮. ইনলাইন কীবোর্ড ক্যালব্যাক হ্যান্ডলার
 // ========================================
-
-bot.action(/save_(.+)/, async (ctx) => {
-    try {
-        const roll = ctx.match[1];
-        const userId = ctx.from.id;
-        
-        let user = getUser(userId);
-        if (user) {
-            user.saved_roll = roll;
-            updateUser(userId, user);
-            await ctx.answerCbQuery(`✅ Roll ${roll} saved!`);
-            await ctx.reply(`✅ Roll ${roll} has been saved!\nUse "📊 My Result" to view it anytime.`);
-        } else {
-            await ctx.answerCbQuery('❌ User not found!');
-        }
-    } catch (error) {
-        console.error('Save roll error:', error);
-        await ctx.answerCbQuery('⚠️ Error saving roll!');
-    }
-});
 
 bot.action(/bteb_(.+)/, async (ctx) => {
     try {
@@ -1777,6 +1836,24 @@ bot.action(/bteb_(.+)/, async (ctx) => {
             await ctx.reply('❌ Registration number not found.');
             return;
         }
+        
+        // Save to user
+        let user = getUser(userId);
+        if (!user) {
+            user = {
+                total_searches: 0,
+                joined: getBSTTimestamp(),
+                first_name: ctx.from.first_name || '',
+                last_name: ctx.from.last_name || '',
+                username: ctx.from.username || '',
+                display_name: getUserDisplayName(ctx.from),
+                saved_roll: null,
+                saved_reg: null
+            };
+        }
+        user.saved_roll = roll;
+        user.saved_reg = regNo;
+        updateUser(userId, user);
         
         // Get captcha
         const captchaData = await session.getCaptcha();
@@ -1836,7 +1913,7 @@ bot.action('new_search', async (ctx) => {
 });
 
 // ========================================
-// ১৮. টেস্ট কমান্ড
+// ১৯. টেস্ট কমান্ড
 // ========================================
 
 bot.command('test', async (ctx) => {
@@ -1860,7 +1937,7 @@ bot.command('test', async (ctx) => {
 });
 
 // ========================================
-// ১৯. টাইম কমান্ড
+// ২০. টাইম কমান্ড
 // ========================================
 
 bot.command('time', async (ctx) => {
@@ -1874,7 +1951,7 @@ bot.command('time', async (ctx) => {
 });
 
 // ========================================
-// ২০. এরর হ্যান্ডলার
+// ২১. এরর হ্যান্ডলার
 // ========================================
 
 bot.catch((err, ctx) => {
@@ -1883,7 +1960,7 @@ bot.catch((err, ctx) => {
 });
 
 // ========================================
-// ২১. বট স্টার্ট এবং ওয়েব সার্ভার
+// ২২. বট স্টার্ট এবং ওয়েব সার্ভার
 // ========================================
 
 console.log('🤖 Bot starting...');
@@ -1924,15 +2001,14 @@ bot.launch({
     console.log('✨ Features:');
     console.log('   • Asia/Dhaka Timezone (UTC+6) - 24h Format');
     console.log('   • Admin Notification on every search');
-    console.log('   • Fixed duplicate username');
-    console.log('   • All commands working');
-    console.log('   • Quick Reply Buttons');
-    console.log('   • Save Roll Feature');
+    console.log('   • Auto-save roll and registration on search');
+    console.log('   • /setroll command to manually set roll & reg');
+    console.log('   • 📘 Enhanced BTEB Result with Subjects & Grades Table');
+    console.log('   • No "Save Roll" button - auto-save on search');
+    console.log('   • One-click result from "My Result" button');
+    console.log('   • Roll change option via /setroll');
     console.log('   • Feedback System');
     console.log('   • /time command to check current time');
-    console.log('   • 📘 NEW: Detailed BTEB Result with Subjects & Grades');
-    console.log('   • /bteb - Get detailed result from saved roll');
-    console.log('   • /bteb_manual - Manual entry for BTEB result');
 })
 .catch((error) => {
     console.error('❌ Bot launch error:', error);
