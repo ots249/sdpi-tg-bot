@@ -1,4 +1,4 @@
-// bot.js - Asia/Dhaka Timezone (Direct)
+// bot.js - Asia/Dhaka Timezone (Direct) with Enhanced Result View
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
@@ -17,6 +17,11 @@ const SEARCH_URL = process.env.SEARCH_URL || 'https://dhakapolytechnic.com/api/s
 const FILE_API_URL = process.env.FILE_API_URL || 'https://dhakapolytechnic.com/api/files';
 const RESULT_API_URL = process.env.RESULT_API_URL || 'https://btebresultszone.com/api/student-results';
 
+// নতুন BTEB API URLs
+const BTEB_CURRICULUM_URL = 'https://result.bteb.gov.bd/api/public/curriculums';
+const BTEB_CAPTCHA_URL = 'https://result.bteb.gov.bd/api/public/captcha';
+const BTEB_RESULT_URL = 'https://result.bteb.gov.bd/api/public/result';
+
 const EMAIL = process.env.EMAIL || 'otsshamol@gmail.com';
 const PASSWORD = process.env.PASSWORD || 'oT$@2007';
 
@@ -30,7 +35,6 @@ const FEEDBACK_FILE = 'feedback.json';
 // ========================================
 
 function getBSTTime() {
-    // সরাসরি Asia/Dhaka timezone ব্যবহার
     const now = new Date();
     const options = {
         timeZone: 'Asia/Dhaka',
@@ -50,7 +54,6 @@ function getBSTTime() {
         dateObj[part.type] = part.value;
     });
     
-    // ISO format এ রিটার্ন
     const isoString = `${dateObj.year}-${dateObj.month}-${dateObj.day}T${dateObj.hour}:${dateObj.minute}:${dateObj.second}.000+06:00`;
     return new Date(isoString);
 }
@@ -164,7 +167,6 @@ function addHistory(userId, roll, result, studentInfo = null) {
 function getSettings() { return loadJSON(SETTINGS_FILE); }
 function saveSettings(settings) { saveJSON(SETTINGS_FILE, settings); }
 
-// ফিডব্যাক ফাংশন
 function getFeedbacks() { return loadJSON(FEEDBACK_FILE); }
 function saveFeedbacks(feedbacks) { saveJSON(FEEDBACK_FILE, feedbacks); }
 function addFeedback(userId, feedback, username = null) {
@@ -292,6 +294,62 @@ class SessionManager {
             return null;
         }
     }
+
+    // ===== নতুন BTEB API মেথড =====
+    
+    async getCurriculums() {
+        try {
+            const response = await this.axiosInstance.get(BTEB_CURRICULUM_URL);
+            if (response.status === 200) {
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            console.error('❌ Curriculum fetch error:', error.message);
+            return null;
+        }
+    }
+
+    async getCaptcha() {
+        try {
+            const response = await this.axiosInstance.get(BTEB_CAPTCHA_URL);
+            if (response.status === 200) {
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            console.error('❌ Captcha fetch error:', error.message);
+            return null;
+        }
+    }
+
+    async getBTEBResult(curriculumCode, rollNo, regNo, semester, examYear, captchaToken, captchaAnswer) {
+        try {
+            const payload = {
+                curriculumCode: curriculumCode,
+                rollNo: rollNo,
+                regNo: regNo,
+                semester: semester,
+                examYear: examYear,
+                captchaToken: captchaToken,
+                captchaAnswer: captchaAnswer
+            };
+            
+            const response = await this.axiosInstance.post(BTEB_RESULT_URL, payload, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.status === 200) {
+                return response.data;
+            }
+            return null;
+        } catch (error) {
+            console.error('❌ BTEB Result error:', error.message);
+            return null;
+        }
+    }
 }
 
 const session = new SessionManager();
@@ -319,6 +377,38 @@ function getUserDisplayWithUsername(user) {
         display += ` (@${user.username})`;
     }
     return display;
+}
+
+function solveMathQuestion(question) {
+    try {
+        // Remove spaces and parse
+        const cleaned = question.replace(/\s/g, '');
+        
+        // Handle addition
+        if (cleaned.includes('+')) {
+            const parts = cleaned.split('+');
+            return parseInt(parts[0]) + parseInt(parts[1]);
+        }
+        // Handle subtraction
+        if (cleaned.includes('-')) {
+            const parts = cleaned.split('-');
+            return parseInt(parts[0]) - parseInt(parts[1]);
+        }
+        // Handle multiplication
+        if (cleaned.includes('*')) {
+            const parts = cleaned.split('*');
+            return parseInt(parts[0]) * parseInt(parts[1]);
+        }
+        // Handle division
+        if (cleaned.includes('/')) {
+            const parts = cleaned.split('/');
+            return parseInt(parts[0]) / parseInt(parts[1]);
+        }
+        return null;
+    } catch (error) {
+        console.error('❌ Math solve error:', error);
+        return null;
+    }
 }
 
 // ========================================
@@ -475,6 +565,103 @@ function formatResultData(resultData, roll) {
     return reply;
 }
 
+// ===== নতুন BTEB Result Formatter with Subjects and Grades =====
+function formatBTEBResult(btebData) {
+    if (!btebData || !btebData.data) {
+        return null;
+    }
+
+    const data = btebData.data;
+    const student = data.student;
+    const semesters = data.semesters || [];
+
+    let reply = '📊 BTEB Result Details\n';
+    reply += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    // Student Info
+    reply += `🎓 Student: ${student.studentName || 'N/A'}\n`;
+    reply += `🔢 Roll: ${student.studentRoll || 'N/A'}\n`;
+    reply += `📋 Reg: ${student.regNo || 'N/A'}\n`;
+    reply += `📚 Technology: ${student.technology?.name || 'N/A'}\n`;
+    reply += `📅 Session: ${student.studySession || 'N/A'}\n\n`;
+
+    // Semester-wise Results
+    if (semesters.length > 0) {
+        for (const semester of semesters) {
+            const semNum = semester.semester;
+            const gpa = semester.gpa;
+            const status = gpa?.status || 'N/A';
+            const statusEmoji = status === 'P' ? '✅' : '❌';
+            
+            reply += `📘 Semester ${semNum}\n`;
+            reply += `━━━━━━━━━━━━━━━━━━━━\n`;
+            reply += `📊 GPA: ${gpa?.gpa || 'N/A'}\n`;
+            reply += `📌 Status: ${statusEmoji} ${status === 'P' ? 'Passed' : status === 'F' ? 'Failed' : 'N/A'}\n`;
+            
+            // Subjects
+            if (semester.subjects && semester.subjects.length > 0) {
+                reply += `\n📚 Subjects:\n`;
+                reply += `┌─────────────────────────────────┬────────┬──────────┐\n`;
+                reply += `│ Subject Name                    │ Credit │ Grade    │\n`;
+                reply += `├─────────────────────────────────┼────────┼──────────┤\n`;
+                
+                for (const subject of semester.subjects) {
+                    const name = subject.subjectName || 'N/A';
+                    const credit = subject.creditHour || 'N/A';
+                    const grade = subject.gradeLetter || 'N/A';
+                    const gp = subject.gradePoint || 'N/A';
+                    
+                    // Pad name to fit in table
+                    const paddedName = name.length > 31 ? name.substring(0, 28) + '...' : name.padEnd(31);
+                    const paddedCredit = String(credit).padEnd(6);
+                    const paddedGrade = `${grade} (${gp})`.padEnd(8);
+                    
+                    reply += `│ ${paddedName} │ ${paddedCredit} │ ${paddedGrade} │\n`;
+                }
+                reply += `└─────────────────────────────────┴────────┴──────────┘\n`;
+            }
+            
+            reply += `\n`;
+        }
+    }
+
+    // Overall Summary
+    reply += `📊 Overall Summary\n`;
+    reply += `━━━━━━━━━━━━━━━━━━━━\n`;
+    
+    let totalSem = 0;
+    let passedSem = 0;
+    let totalGpa = 0;
+    let gpaCount = 0;
+    
+    for (const semester of semesters) {
+        if (semester.semester > 0) {
+            totalSem++;
+            const gpa = semester.gpa;
+            if (gpa?.status === 'P') {
+                passedSem++;
+                if (gpa.gpa) {
+                    totalGpa += parseFloat(gpa.gpa);
+                    gpaCount++;
+                }
+            }
+        }
+    }
+    
+    reply += `• Total Semesters: ${totalSem}\n`;
+    reply += `• Passed: ${passedSem} ✅\n`;
+    reply += `• Failed: ${totalSem - passedSem} ❌\n`;
+    
+    if (gpaCount > 0) {
+        const cgpa = totalGpa / gpaCount;
+        reply += `• CGPA: ${cgpa.toFixed(2)}\n`;
+    }
+    
+    reply += `\n📅 Result Published: ${semesters[0]?.meta?.resultPublish || 'N/A'}`;
+
+    return reply;
+}
+
 // ========================================
 // ৭. ফটো পাঠানোর ফাংশন
 // ========================================
@@ -617,7 +804,8 @@ bot.command('start', async (ctx) => {
         
         const keyboard = Markup.keyboard([
             ['🔍 New Search', '📊 My Result'],
-            ['ℹ️ Help', '⭐ Feedback']
+            ['📘 BTEB Result', 'ℹ️ Help'],
+            ['⭐ Feedback']
         ]).resize().oneTime();
         
         let msg = `🎓 Welcome ${user.display_name || 'User'}!\n`;
@@ -646,13 +834,15 @@ bot.command('help', async (ctx) => {
         msg += `1️⃣ Send a roll number or click "🔍 New Search"\n`;
         msg += `2️⃣ Bot will show student info & result\n`;
         msg += `3️⃣ Use "📊 My Result" to see saved result\n`;
-        msg += `4️⃣ Give feedback with "⭐ Feedback"\n\n`;
+        msg += `4️⃣ Use "📘 BTEB Result" for detailed result with grades\n`;
+        msg += `5️⃣ Give feedback with "⭐ Feedback"\n\n`;
         msg += `⚡ Commands:\n`;
         msg += `• /start - Restart bot\n`;
         msg += `• /help - Show this help\n`;
         msg += `• /stats - Your statistics\n`;
         msg += `• /myid - Your Telegram ID\n`;
-        msg += `• /about - About the bot`;
+        msg += `• /about - About the bot\n`;
+        msg += `• /bteb - Get detailed BTEB result with subjects & grades`;
         if (isAdminUser) {
             msg += `\n\n👑 Admin Commands:\n`;
             msg += `• /admin - Admin Panel`;
@@ -719,12 +909,13 @@ bot.command('about', async (ctx) => {
         msg += `• Quick search by roll\n`;
         msg += `• Information with photo\n`;
         msg += `• Result check\n`;
+        msg += `• Detailed BTEB result with subjects & grades\n`;
         msg += `• Save favorite roll\n`;
         msg += `• Feedback system\n`;
         msg += `• Completely free\n`;
         msg += `• 24/7 active\n\n`;
         msg += `📌 Developer: Oahid Towsif Shamol\n`;
-        msg += `📅 Version: 6.5 (Asia/Dhaka Timezone)\n`;
+        msg += `📅 Version: 7.0 (Asia/Dhaka Timezone)\n`;
         msg += `🕐 Time Zone: Asia/Dhaka (UTC+06:00) 24h Format`;
         await ctx.reply(msg);
     } catch (error) {
@@ -1050,7 +1241,191 @@ bot.command('clear_feedback', adminOnly, async (ctx) => {
 });
 
 // ========================================
-// ১২. কুইক রিপ্লাই বাটন হ্যান্ডলার
+// ১২. BTEB Result Command - NEW
+// ========================================
+
+bot.command('bteb', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        console.log(`✅ /bteb from: ${userId}`);
+        
+        // Check if user has saved roll
+        const user = getUser(userId);
+        if (!user || !user.saved_roll) {
+            await ctx.reply(
+                '❌ No saved roll found!\n\n' +
+                'Please search a student first to save their roll.\n' +
+                'Or use: /bteb_manual to enter details manually.'
+            );
+            return;
+        }
+        
+        // Get student info from saved roll
+        const roll = user.saved_roll;
+        await ctx.reply(`⏳ Fetching BTEB result for roll: ${roll}...`);
+        
+        // First get student info to get reg number
+        const studentResult = await session.searchStudent(roll);
+        if (!studentResult || !studentResult.rows || studentResult.rows.length === 0) {
+            await ctx.reply(`❌ No student found with roll: ${roll}`);
+            return;
+        }
+        
+        const studentInfo = studentResult.rows[0];
+        const regNo = studentInfo.reg || studentInfo.registration;
+        
+        if (!regNo) {
+            await ctx.reply('❌ Registration number not found for this student.');
+            return;
+        }
+        
+        // Now get BTEB result
+        await ctx.reply('🔄 Getting captcha from BTEB...');
+        
+        // Get captcha
+        const captchaData = await session.getCaptcha();
+        if (!captchaData) {
+            await ctx.reply('❌ Failed to get captcha. Please try again.');
+            return;
+        }
+        
+        const question = captchaData.question;
+        const token = captchaData.token;
+        const answer = solveMathQuestion(question);
+        
+        if (answer === null) {
+            await ctx.reply(`❌ Failed to solve captcha: ${question}`);
+            return;
+        }
+        
+        await ctx.reply(`🧮 Captcha: ${question} = ${answer}`);
+        
+        // Get curriculum (use 15 as default)
+        const curriculumCode = '15';
+        const semester = '1';
+        const examYear = '2024';
+        
+        await ctx.reply('📊 Fetching detailed result from BTEB...');
+        
+        const btebResult = await session.getBTEBResult(
+            curriculumCode,
+            roll,
+            regNo,
+            semester,
+            examYear,
+            token,
+            String(answer)
+        );
+        
+        if (!btebResult || !btebResult.success) {
+            await ctx.reply('❌ Failed to get BTEB result. Please check your details and try again.');
+            return;
+        }
+        
+        // Format and display result
+        const formattedResult = formatBTEBResult(btebResult);
+        if (formattedResult) {
+            await ctx.reply(formattedResult);
+        } else {
+            await ctx.reply('❌ No result data found.');
+        }
+        
+        // Add to history
+        addHistory(userId, roll, true, studentInfo);
+        
+    } catch (error) {
+        console.error('BTEB command error:', error);
+        await ctx.reply('⚠️ Error fetching BTEB result. Please try again.');
+    }
+});
+
+// ========================================
+// ১৩. BTEB Manual Command - NEW
+// ========================================
+
+bot.command('bteb_manual', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        const args = ctx.message.text.split(' ');
+        
+        // Remove command from args
+        args.shift();
+        
+        if (args.length < 2) {
+            await ctx.reply(
+                '📘 BTEB Result Manual Entry\n\n' +
+                'Usage: /bteb_manual <roll> <reg>\n\n' +
+                'Example: /bteb_manual 240363 1502416118\n\n' +
+                'Optional: Add semester and year\n' +
+                '/bteb_manual 240363 1502416118 1 2024'
+            );
+            return;
+        }
+        
+        const roll = args[0];
+        const regNo = args[1];
+        const semester = args[2] || '1';
+        const examYear = args[3] || '2024';
+        const curriculumCode = '15';
+        
+        await ctx.reply(`⏳ Fetching BTEB result for:\nRoll: ${roll}\nReg: ${regNo}\nSemester: ${semester}\nYear: ${examYear}`);
+        
+        // Get captcha
+        const captchaData = await session.getCaptcha();
+        if (!captchaData) {
+            await ctx.reply('❌ Failed to get captcha. Please try again.');
+            return;
+        }
+        
+        const question = captchaData.question;
+        const token = captchaData.token;
+        const answer = solveMathQuestion(question);
+        
+        if (answer === null) {
+            await ctx.reply(`❌ Failed to solve captcha: ${question}`);
+            return;
+        }
+        
+        await ctx.reply(`🧮 Captcha: ${question} = ${answer}`);
+        
+        const btebResult = await session.getBTEBResult(
+            curriculumCode,
+            roll,
+            regNo,
+            semester,
+            examYear,
+            token,
+            String(answer)
+        );
+        
+        if (!btebResult || !btebResult.success) {
+            await ctx.reply('❌ Failed to get BTEB result. Please check your details and try again.');
+            return;
+        }
+        
+        const formattedResult = formatBTEBResult(btebResult);
+        if (formattedResult) {
+            await ctx.reply(formattedResult);
+            
+            // Save roll for future use
+            let user = getUser(userId);
+            if (user) {
+                user.saved_roll = roll;
+                updateUser(userId, user);
+                await ctx.reply(`✅ Roll ${roll} saved for quick access!`);
+            }
+        } else {
+            await ctx.reply('❌ No result data found.');
+        }
+        
+    } catch (error) {
+        console.error('BTEB manual error:', error);
+        await ctx.reply('⚠️ Error fetching BTEB result. Please try again.');
+    }
+});
+
+// ========================================
+// ১৪. কুইক রিপ্লাই বাটন হ্যান্ডলার
 // ========================================
 
 bot.hears('🔍 New Search', async (ctx) => {
@@ -1068,7 +1443,8 @@ bot.hears('📊 My Result', async (ctx) => {
                 '🔍 First search a student, then use "Save Roll" button to save.',
                 Markup.keyboard([
                     ['🔍 New Search'],
-                    ['ℹ️ Help', '⭐ Feedback']
+                    ['📘 BTEB Result', 'ℹ️ Help'],
+                    ['⭐ Feedback']
                 ]).resize().oneTime()
             );
             return;
@@ -1110,7 +1486,8 @@ bot.hears('📊 My Result', async (ctx) => {
         
         const keyboard = Markup.keyboard([
             ['🔍 New Search', '📊 My Result'],
-            ['ℹ️ Help', '⭐ Feedback']
+            ['📘 BTEB Result', 'ℹ️ Help'],
+            ['⭐ Feedback']
         ]).resize().oneTime();
         await ctx.reply('🔍 What would you like to do?', keyboard);
         
@@ -1120,19 +1497,47 @@ bot.hears('📊 My Result', async (ctx) => {
     }
 });
 
+bot.hears('📘 BTEB Result', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        const user = getUser(userId);
+        
+        if (!user || !user.saved_roll) {
+            await ctx.reply(
+                '❌ No saved roll number found!\n\n' +
+                'To get BTEB result, you need a saved roll.\n' +
+                'Use: /bteb_manual <roll> <reg>\n\n' +
+                'Or search a student first to save their roll.'
+            );
+            return;
+        }
+        
+        // Trigger the /bteb command
+        ctx.message.text = '/bteb';
+        await bot.handleUpdate(ctx.update);
+        
+    } catch (error) {
+        console.error('BTEB button error:', error);
+        await ctx.reply('⚠️ Error. Please use /bteb command.');
+    }
+});
+
 bot.hears('ℹ️ Help', async (ctx) => {
     const isAdminUser = isAdmin(ctx.from.id);
     let msg = `📖 How to use:\n\n`;
     msg += `1️⃣ Send a roll number or click "🔍 New Search"\n`;
     msg += `2️⃣ Bot will show student info & result\n`;
     msg += `3️⃣ Use "📊 My Result" to see saved result\n`;
-    msg += `4️⃣ Give feedback with "⭐ Feedback"\n\n`;
+    msg += `4️⃣ Use "📘 BTEB Result" for detailed result with subjects & grades\n`;
+    msg += `5️⃣ Give feedback with "⭐ Feedback"\n\n`;
     msg += `⚡ Commands:\n`;
     msg += `• /start - Restart bot\n`;
     msg += `• /help - Show this help\n`;
     msg += `• /stats - Your statistics\n`;
     msg += `• /myid - Your Telegram ID\n`;
-    msg += `• /about - About the bot`;
+    msg += `• /about - About the bot\n`;
+    msg += `• /bteb - Get detailed BTEB result\n`;
+    msg += `• /bteb_manual - Manual BTEB result entry`;
     if (isAdminUser) {
         msg += `\n\n👑 Admin Commands:\n`;
         msg += `• /admin - Admin Panel`;
@@ -1149,7 +1554,7 @@ bot.hears('⭐ Feedback', async (ctx) => {
 });
 
 // ========================================
-// ১৩. ফিডব্যাক কমান্ড
+// ১৫. ফিডব্যাক কমান্ড
 // ========================================
 
 bot.command('feedback', async (ctx) => {
@@ -1194,7 +1599,7 @@ bot.command('feedback', async (ctx) => {
 });
 
 // ========================================
-// ১৪. সার্চ হ্যান্ডলার
+// ১৬. সার্চ হ্যান্ডলার
 // ========================================
 
 bot.on('text', async (ctx) => {
@@ -1204,7 +1609,7 @@ bot.on('text', async (ctx) => {
         const text = ctx.message.text.trim();
 
         // কুইক রিপ্লাই বাটন চেক
-        if (['🔍 New Search', '📊 My Result', 'ℹ️ Help', '⭐ Feedback'].includes(text)) {
+        if (['🔍 New Search', '📊 My Result', '📘 BTEB Result', 'ℹ️ Help', '⭐ Feedback'].includes(text)) {
             return;
         }
 
@@ -1297,6 +1702,7 @@ bot.on('text', async (ctx) => {
             
             const saveKeyboard = Markup.inlineKeyboard([
                 [Markup.button.callback('💾 Save This Roll', `save_${roll}`)],
+                [Markup.button.callback('📘 BTEB Result', `bteb_${roll}`)],
                 [Markup.button.callback('🔍 New Search', 'new_search')]
             ]);
             
@@ -1314,7 +1720,8 @@ bot.on('text', async (ctx) => {
         // ৬. কুইক রিপ্লাই কীবোর্ড দেখান
         const keyboard = Markup.keyboard([
             ['🔍 New Search', '📊 My Result'],
-            ['ℹ️ Help', '⭐ Feedback']
+            ['📘 BTEB Result', 'ℹ️ Help'],
+            ['⭐ Feedback']
         ]).resize().oneTime();
         
         await ctx.reply('🔍 What would you like to do next?', keyboard);
@@ -1326,7 +1733,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ========================================
-// ১৫. ইনলাইন কীবোর্ড ক্যালব্যাক হ্যান্ডলার
+// ১৭. ইনলাইন কীবোর্ড ক্যালব্যাক হ্যান্ডলার
 // ========================================
 
 bot.action(/save_(.+)/, async (ctx) => {
@@ -1349,6 +1756,75 @@ bot.action(/save_(.+)/, async (ctx) => {
     }
 });
 
+bot.action(/bteb_(.+)/, async (ctx) => {
+    try {
+        const roll = ctx.match[1];
+        const userId = ctx.from.id;
+        
+        await ctx.answerCbQuery(`📘 Getting BTEB result for ${roll}`);
+        
+        // Get student info
+        const studentResult = await session.searchStudent(roll);
+        if (!studentResult || !studentResult.rows || studentResult.rows.length === 0) {
+            await ctx.reply(`❌ No student found with roll: ${roll}`);
+            return;
+        }
+        
+        const studentInfo = studentResult.rows[0];
+        const regNo = studentInfo.reg || studentInfo.registration;
+        
+        if (!regNo) {
+            await ctx.reply('❌ Registration number not found.');
+            return;
+        }
+        
+        // Get captcha
+        const captchaData = await session.getCaptcha();
+        if (!captchaData) {
+            await ctx.reply('❌ Failed to get captcha.');
+            return;
+        }
+        
+        const question = captchaData.question;
+        const token = captchaData.token;
+        const answer = solveMathQuestion(question);
+        
+        if (answer === null) {
+            await ctx.reply(`❌ Failed to solve captcha: ${question}`);
+            return;
+        }
+        
+        await ctx.reply(`🧮 Captcha: ${question} = ${answer}`);
+        
+        const btebResult = await session.getBTEBResult(
+            '15',
+            roll,
+            regNo,
+            '1',
+            '2024',
+            token,
+            String(answer)
+        );
+        
+        if (!btebResult || !btebResult.success) {
+            await ctx.reply('❌ Failed to get BTEB result.');
+            return;
+        }
+        
+        const formattedResult = formatBTEBResult(btebResult);
+        if (formattedResult) {
+            await ctx.reply(formattedResult);
+        } else {
+            await ctx.reply('❌ No result data found.');
+        }
+        
+    } catch (error) {
+        console.error('BTEB inline error:', error);
+        await ctx.answerCbQuery('⚠️ Error!');
+        await ctx.reply('⚠️ Error fetching BTEB result.');
+    }
+});
+
 bot.action('new_search', async (ctx) => {
     try {
         await ctx.answerCbQuery('🔍 Start a new search');
@@ -1360,7 +1836,7 @@ bot.action('new_search', async (ctx) => {
 });
 
 // ========================================
-// ১৬. টেস্ট কমান্ড
+// ১৮. টেস্ট কমান্ড
 // ========================================
 
 bot.command('test', async (ctx) => {
@@ -1384,7 +1860,7 @@ bot.command('test', async (ctx) => {
 });
 
 // ========================================
-// ১৭. টাইম কমান্ড
+// ১৯. টাইম কমান্ড
 // ========================================
 
 bot.command('time', async (ctx) => {
@@ -1398,7 +1874,7 @@ bot.command('time', async (ctx) => {
 });
 
 // ========================================
-// ১৮. এরর হ্যান্ডলার
+// ২০. এরর হ্যান্ডলার
 // ========================================
 
 bot.catch((err, ctx) => {
@@ -1407,7 +1883,7 @@ bot.catch((err, ctx) => {
 });
 
 // ========================================
-// ১৯. বট স্টার্ট এবং ওয়েব সার্ভার
+// ২১. বট স্টার্ট এবং ওয়েব সার্ভার
 // ========================================
 
 console.log('🤖 Bot starting...');
@@ -1454,6 +1930,9 @@ bot.launch({
     console.log('   • Save Roll Feature');
     console.log('   • Feedback System');
     console.log('   • /time command to check current time');
+    console.log('   • 📘 NEW: Detailed BTEB Result with Subjects & Grades');
+    console.log('   • /bteb - Get detailed result from saved roll');
+    console.log('   • /bteb_manual - Manual entry for BTEB result');
 })
 .catch((error) => {
     console.error('❌ Bot launch error:', error);
